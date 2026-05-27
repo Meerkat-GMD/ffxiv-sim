@@ -831,6 +831,89 @@ describe('App', () => {
     expect(container?.textContent).toContain('00:05 DPS sleep debuff');
   });
 
+  it('keeps edited room timeline events through reset and stale realtime snapshots', () => {
+    let realtimeOptions: RealtimeClientOptions | undefined;
+    const realtimeClient = {
+      claimRole: vi.fn(),
+      disconnect: vi.fn(),
+      moveRole: vi.fn(),
+      setMarkers: vi.fn(),
+      setTargetMarkers: vi.fn(),
+      setTimeline: vi.fn(),
+    };
+    const realtimeConnector = vi.fn((options: RealtimeClientOptions) => {
+      realtimeOptions = options;
+      return realtimeClient;
+    });
+    const emptyTimeline = {
+      activeTelegraphs: [],
+      events: [],
+      resolvedEffects: [],
+    };
+
+    window.history.pushState({}, '', '/?room=alpha');
+    renderAppElement(
+      <App
+        realtimeConnector={realtimeConnector}
+        realtimeUrl="http://localhost:3001"
+      />,
+    );
+
+    act(() => {
+      realtimeOptions?.onState({
+        claimedRoles: {},
+        markers: [],
+        players: createInitialPlayers(),
+        roomId: 'alpha',
+        targetMarkers: [],
+        timeline: emptyTimeline,
+      });
+    });
+
+    act(() => {
+      screenButton('Timeline Editor')?.click();
+    });
+
+    act(() => {
+      container
+        ?.querySelector<HTMLButtonElement>('button[aria-label="Add sleep debuff"]')
+        ?.click();
+    });
+
+    const editedTimeline = realtimeClient.setTimeline.mock.calls[0]?.[0];
+
+    act(() => {
+      realtimeOptions?.onState({
+        claimedRoles: {},
+        markers: [],
+        players: createInitialPlayers(),
+        roomId: 'alpha',
+        targetMarkers: [],
+        timeline: editedTimeline,
+      });
+    });
+
+    act(() => {
+      timelineButton('Reset')?.click();
+    });
+
+    expect(realtimeClient.setTimeline).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      realtimeOptions?.onState({
+        claimedRoles: {},
+        markers: [],
+        players: createInitialPlayers(),
+        roomId: 'alpha',
+        targetMarkers: [],
+        timeline: emptyTimeline,
+      });
+    });
+
+    expect(container?.textContent).toContain('00.00s');
+    expect(container?.textContent).toContain('00:05 DPS sleep debuff');
+  });
+
   it('keeps recent local movement from being overwritten by delayed realtime snapshots', () => {
     const snapshotPlayers = createInitialPlayers();
     const mergedDuringMove = mergeRealtimePlayers(

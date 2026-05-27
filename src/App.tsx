@@ -343,6 +343,10 @@ function App({
     setCombatStatuses(nextCombatStatuses);
     combatStatusesRef.current = nextCombatStatuses;
     timelineRef.current = nextTimeline;
+    localTimelineRef.current = {
+      timeline: nextTimeline,
+      updatedAt: Date.now(),
+    };
     timelineTimeRef.current = 0;
     setIsTimelinePlaying(false);
     setTimeline(nextTimeline);
