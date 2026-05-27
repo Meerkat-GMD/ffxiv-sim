@@ -11,7 +11,7 @@ import {
 } from './client/realtimeClient';
 import { readFirebaseConfig } from './client/firebaseConfig';
 import { connectFirebaseRealtime } from './client/firebaseRealtimeClient';
-import { createInitialPlayers } from './sim/players';
+import { createInitialPlayers, type Player } from './sim/players';
 import { claimRole, type Role } from './sim/roles';
 import {
   advanceTimeline,
@@ -29,6 +29,8 @@ import { TimelineEditor } from './ui/TimelineEditor';
 
 const TIMELINE_TICK_SECONDS = 0.05;
 const TIMELINE_TICK_MS = TIMELINE_TICK_SECONDS * 1000;
+const LOCAL_MOVE_SNAPSHOT_GRACE_MS = 250;
+const REMOTE_MOVE_SEND_INTERVAL_MS = 45;
 
 type AppProps = {
   realtimeConnector?: (options: RealtimeClientOptions) => RealtimeClient;
@@ -36,6 +38,12 @@ type AppProps = {
 };
 
 type AppScreen = 'simulator' | 'timeline-editor';
+
+type LocalMoveSnapshot = {
+  movedAt: number;
+  position: { x: number; y: number };
+  role: Role;
+};
 
 function App({
   realtimeConnector = defaultRealtimeConnector,
@@ -62,6 +70,9 @@ function App({
   const timelineRef = useRef(timeline);
   const timelineTimeRef = useRef(timelineTime);
   const playersRef = useRef(players);
+  const controlledRoleRef = useRef(controlledRole);
+  const localMoveRef = useRef<LocalMoveSnapshot | undefined>(undefined);
+  const lastRemoteMoveSentAtRef = useRef(0);
   const claimedRoles = new Set<Role>(otherClaimedRoles);
 
   if (controlledRole) {
@@ -71,6 +82,10 @@ function App({
   useEffect(() => {
     playersRef.current = players;
   }, [players]);
+
+  useEffect(() => {
+    controlledRoleRef.current = controlledRole;
+  }, [controlledRole]);
 
   useEffect(() => {
     timelineRef.current = timeline;
@@ -83,7 +98,18 @@ function App({
 
     const client = realtimeConnector({
       onState(snapshot) {
-        setPlayers(snapshot.players);
+        setPlayers(() => {
+          const nextPlayers = mergeRealtimePlayers(
+            snapshot.players,
+            controlledRoleRef.current,
+            localMoveRef.current,
+            Date.now(),
+          );
+
+          playersRef.current = nextPlayers;
+
+          return nextPlayers;
+        });
         setPlacedMarkers(
           snapshot.markers.map((marker) => ({
             ...marker,
@@ -286,6 +312,19 @@ function App({
   }
 
   function handleMoveControlledRole(role: Role, position: { x: number; y: number }) {
+    const now = Date.now();
+
+    localMoveRef.current = {
+      movedAt: now,
+      position,
+      role,
+    };
+
+    if (now - lastRemoteMoveSentAtRef.current < REMOTE_MOVE_SEND_INTERVAL_MS) {
+      return;
+    }
+
+    lastRemoteMoveSentAtRef.current = now;
     realtimeClientRef.current?.moveRole(role, position);
   }
 
@@ -411,6 +450,32 @@ function readRoomIdFromLocation(): string | undefined {
 }
 
 export default App;
+
+export function mergeRealtimePlayers(
+  snapshotPlayers: Player[],
+  controlledRole: Role | undefined,
+  localMove: LocalMoveSnapshot | undefined,
+  now: number,
+): Player[] {
+  if (
+    !controlledRole ||
+    !localMove ||
+    localMove.role !== controlledRole ||
+    now - localMove.movedAt > LOCAL_MOVE_SNAPSHOT_GRACE_MS
+  ) {
+    return snapshotPlayers;
+  }
+
+  return snapshotPlayers.map((player) =>
+    player.role === controlledRole
+      ? {
+          ...player,
+          connected: true,
+          position: { ...localMove.position },
+        }
+      : player,
+  );
+}
 
 function defaultRealtimeConnector(options: RealtimeClientOptions): RealtimeClient {
   if (readFirebaseConfig()) {

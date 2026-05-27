@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import App from './App';
+import App, { mergeRealtimePlayers } from './App';
 import {
   type RealtimeClient,
   type RealtimeClientOptions,
@@ -399,6 +399,42 @@ describe('App', () => {
 
     expect(placedMarkers).toHaveLength(1);
     expect(placedMarkers?.[0]?.style.left).not.toBe('50%');
+  });
+
+  it('keeps recent local movement from being overwritten by delayed realtime snapshots', () => {
+    const snapshotPlayers = createInitialPlayers();
+    const mergedDuringMove = mergeRealtimePlayers(
+      snapshotPlayers,
+      'MT',
+      {
+        movedAt: 1000,
+        position: { x: 40, y: -90 },
+        role: 'MT',
+      },
+      1120,
+    );
+    const mtDuringMove = mergedDuringMove.find((player) => player.role === 'MT');
+    const d1DuringMove = mergedDuringMove.find((player) => player.role === 'D1');
+
+    expect(mtDuringMove?.position).toEqual({ x: 40, y: -90 });
+    expect(d1DuringMove?.position).toEqual(
+      snapshotPlayers.find((player) => player.role === 'D1')?.position,
+    );
+
+    const mergedAfterMoveSettles = mergeRealtimePlayers(
+      snapshotPlayers,
+      'MT',
+      {
+        movedAt: 1000,
+        position: { x: 40, y: -90 },
+        role: 'MT',
+      },
+      1400,
+    );
+
+    expect(mergedAfterMoveSettles.find((player) => player.role === 'MT')?.position).toEqual(
+      snapshotPlayers.find((player) => player.role === 'MT')?.position,
+    );
   });
 
   function timelineButton(label: string) {
