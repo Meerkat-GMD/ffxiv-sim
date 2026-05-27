@@ -10,6 +10,10 @@ import App, {
   mergeRealtimeTargetMarkers,
 } from './App';
 import {
+  createInitialCombatStatuses,
+  type PlayerCombatStatus,
+} from './sim/combatStatus';
+import {
   type RealtimeClient,
   type RealtimeClientOptions,
 } from './client/realtimeClient';
@@ -75,6 +79,9 @@ describe('App', () => {
     expect(html).toContain('Arena canvas');
     expect(html).toContain('Timeline');
     expect(html).toContain('Markers');
+    expect(html).toContain('Player Status');
+    expect(html).toContain('HP 10,000 / 10,000');
+    expect(html).toContain('Buffs: None');
     expect(html).toContain('Waymarks');
     expect(html).toContain('Combat');
     expect(html).toContain('alt="Waymark A"');
@@ -87,6 +94,31 @@ describe('App', () => {
     for (const role of ROLES) {
       expect(html).toContain(`>${role}</button>`);
     }
+  });
+
+  it('resets player HP and buff windows when timeline playback starts', () => {
+    const initialCombatStatuses: PlayerCombatStatus[] =
+      createInitialCombatStatuses().map((status) =>
+        status.role === 'MT'
+          ? {
+              ...status,
+              buffs: [{ id: 'test-buff', name: 'Test Buff' }],
+              currentHp: 4321,
+            }
+          : status,
+      );
+
+    renderAppElement(<App initialCombatStatuses={initialCombatStatuses} />);
+
+    expect(container?.textContent).toContain('HP 4,321 / 10,000');
+    expect(container?.textContent).toContain('Test Buff');
+
+    act(() => {
+      timelineButton('Play')?.click();
+    });
+
+    expect(container?.textContent).toContain('HP 10,000 / 10,000');
+    expect(container?.textContent).not.toContain('Test Buff');
   });
 
   it('selects an open role without leaving the previous local role claimed', () => {

@@ -11,6 +11,11 @@ import {
 } from './client/realtimeClient';
 import { readFirebaseConfig } from './client/firebaseConfig';
 import { connectFirebaseRealtime } from './client/firebaseRealtimeClient';
+import {
+  createInitialCombatStatuses,
+  resetCombatStatuses,
+  type PlayerCombatStatus,
+} from './sim/combatStatus';
 import { createInitialPlayers, type Player } from './sim/players';
 import { claimRole, type Role } from './sim/roles';
 import {
@@ -28,6 +33,7 @@ import {
 } from './ui/ArenaCanvas';
 import { EncounterControls } from './ui/EncounterControls';
 import { MarkerTray, type MarkerAsset } from './ui/MarkerTray';
+import { PlayerStatusPanel } from './ui/PlayerStatusPanel';
 import { RolePanel } from './ui/RolePanel';
 import { TimelineControls } from './ui/TimelineControls';
 import { TimelineEditor } from './ui/TimelineEditor';
@@ -38,6 +44,7 @@ const LOCAL_MOVE_SNAPSHOT_GRACE_MS = 250;
 const REMOTE_MOVE_SEND_INTERVAL_MS = 45;
 
 type AppProps = {
+  initialCombatStatuses?: PlayerCombatStatus[];
   realtimeConnector?: (options: RealtimeClientOptions) => RealtimeClient;
   realtimeUrl?: string;
 };
@@ -61,6 +68,7 @@ type LocalTargetMarkersSnapshot = {
 };
 
 function App({
+  initialCombatStatuses,
   realtimeConnector = defaultRealtimeConnector,
   realtimeUrl,
 }: AppProps = {}) {
@@ -69,6 +77,9 @@ function App({
     readRoomIdFromLocation() ? undefined : 'MT',
   );
   const [players, setPlayers] = useState(() => createInitialPlayers());
+  const [combatStatuses, setCombatStatuses] = useState(
+    () => initialCombatStatuses ?? createInitialCombatStatuses(),
+  );
   const [timeline, setTimeline] = useState(() => createSampleTimeline());
   const [timelineTime, setTimelineTime] = useState(0);
   const [isTimelinePlaying, setIsTimelinePlaying] = useState(false);
@@ -281,11 +292,17 @@ function App({
   function handleResetTimeline() {
     const nextTimeline = createSampleTimeline();
 
+    setCombatStatuses(resetCombatStatuses());
     timelineRef.current = nextTimeline;
     timelineTimeRef.current = 0;
     setIsTimelinePlaying(false);
     setTimeline(nextTimeline);
     setTimelineTime(0);
+  }
+
+  function handlePlayTimeline() {
+    setCombatStatuses(resetCombatStatuses());
+    setIsTimelinePlaying(true);
   }
 
   function buildEncounterDocument(): EncounterDocument {
@@ -482,11 +499,14 @@ function App({
 
       {activeScreen === 'simulator' ? (
         <section className="sim-layout">
-          <RolePanel
-            claimedRoles={claimedRoles}
-            currentRole={controlledRole}
-            onSelectRole={handleSelectRole}
-          />
+          <div className="left-panel-stack">
+            <RolePanel
+              claimedRoles={claimedRoles}
+              currentRole={controlledRole}
+              onSelectRole={handleSelectRole}
+            />
+            <PlayerStatusPanel statuses={combatStatuses} />
+          </div>
 
           <ArenaCanvas
             controlledRole={controlledRole}
@@ -517,7 +537,7 @@ function App({
               events={timeline.events}
               isPlaying={isTimelinePlaying}
               onPause={() => setIsTimelinePlaying(false)}
-              onPlay={() => setIsTimelinePlaying(true)}
+              onPlay={handlePlayTimeline}
               onReset={handleResetTimeline}
               resolvedEffects={timeline.resolvedEffects}
             />
@@ -548,7 +568,7 @@ function App({
               events={timeline.events}
               isPlaying={isTimelinePlaying}
               onPause={() => setIsTimelinePlaying(false)}
-              onPlay={() => setIsTimelinePlaying(true)}
+              onPlay={handlePlayTimeline}
               onReset={handleResetTimeline}
               resolvedEffects={timeline.resolvedEffects}
             />

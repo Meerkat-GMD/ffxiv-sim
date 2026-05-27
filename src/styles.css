@@ -205,6 +205,68 @@ h3 {
   opacity: 1;
 }
 
+.left-panel-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.player-status-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.player-status-row {
+  display: grid;
+  gap: 6px;
+  border: 3px solid #f8fafc;
+  background: #020617;
+  list-style: none;
+  padding: 8px;
+}
+
+.player-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 900;
+}
+
+.player-status-header strong {
+  color: #fde047;
+}
+
+.player-status-header span {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.player-buff-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 24px;
+}
+
+.player-buff,
+.player-buff-empty {
+  border: 2px solid #64748b;
+  background: #111827;
+  color: #f8fafc;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 2px 5px;
+}
+
+.player-buff-empty {
+  color: #94a3b8;
+}
+
 .arena-panel {
   display: grid;
   min-height: min(66vw, 660px);
