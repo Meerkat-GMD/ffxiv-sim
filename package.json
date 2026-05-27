@@ -1,0 +1,37 @@
+{
+  "name": "ffxiv-sim",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "prebuild": "node scripts/clean-dist.mjs",
+    "build": "tsc --noEmit && vite build",
+    "start": "npm run server",
+    "server": "tsx server/index.ts",
+    "server:lan": "tsx server/index.ts --lan",
+    "server:dev": "tsx watch server/index.ts",
+    "tunnel:cloudflare": "npx -y cloudflared tunnel --protocol http2 --url http://127.0.0.1:3001",
+    "sync:assets": "node scripts/sync-xivplan-assets.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
+    "tsx": "^4.22.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.8"
+  }
+}

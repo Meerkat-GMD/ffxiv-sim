@@ -1,0 +1,11 @@
+node_modules/
+dist/
+server/data/
+*.log
+vite.out.log
+vite.err.log
+server.out.log
+server.err.log
+verification-screenshots/
+.env
+.env.*

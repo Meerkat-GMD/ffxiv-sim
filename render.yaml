@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: ffxiv-sim
+    runtime: docker
+    plan: free
+    autoDeploy: false
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
