@@ -118,18 +118,56 @@ describe('ArenaCanvas keyboard scope', () => {
     return container.querySelector<HTMLCanvasElement>('canvas');
   }
 
-  it('does not prevent default for movement keys dispatched outside the canvas', () => {
+  it('tracks simultaneous movement keys from the window', () => {
+    const onMoveControlledRole = vi.fn();
+    let players = createInitialPlayers();
+    const setPlayers = vi.fn((updater: typeof players | ((value: typeof players) => typeof players)) => {
+      players = typeof updater === 'function' ? updater(players) : updater;
+    });
+
+    renderArenaCanvas(setPlayers, { onMoveControlledRole });
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          cancelable: true,
+          code: 'KeyW',
+        }),
+      );
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          cancelable: true,
+          code: 'KeyD',
+        }),
+      );
+      animationFrameCallbacks[0]?.(16);
+      animationFrameCallbacks[1]?.(66);
+    });
+
+    expect(onMoveControlledRole).toHaveBeenCalledWith('MT', {
+      x: expect.closeTo(9.192, 3),
+      y: expect.closeTo(-129.192, 3),
+    });
+  });
+
+  it('does not capture movement keys while typing in form fields', () => {
     renderArenaCanvas();
+    const input = document.createElement('input');
+    document.body.append(input);
+    input.focus();
 
     const event = new KeyboardEvent('keydown', {
       bubbles: true,
       cancelable: true,
       code: 'KeyW',
     });
-    const preventedByWindow = !window.dispatchEvent(event);
 
-    expect(preventedByWindow).toBe(false);
+    input.dispatchEvent(event);
+
     expect(event.defaultPrevented).toBe(false);
+    input.remove();
   });
 
   it('clears pressed movement keys when the canvas loses focus', () => {
@@ -197,7 +235,7 @@ describe('ArenaCanvas keyboard scope', () => {
     });
 
     expect(onMoveControlledRole).toHaveBeenCalledWith('MT', {
-      x: 9,
+      x: 13,
       y: -120,
     });
   });

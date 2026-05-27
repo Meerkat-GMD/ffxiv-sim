@@ -20,7 +20,7 @@ const CANVAS_SIZE = 720;
 const ARENA_RADIUS = 180;
 const TOKEN_RADIUS = 12;
 const MARKER_RADIUS = 8;
-const MOVE_UNITS_PER_SECOND = 180;
+const MOVE_UNITS_PER_SECOND = 260;
 const MAX_FRAME_SECONDS = 0.05;
 
 type MovementKey = 'up' | 'down' | 'left' | 'right';
@@ -176,9 +176,43 @@ export function ArenaCanvas({
   }
 
   useEffect(() => {
+    function handleWindowKeyDown(event: globalThis.KeyboardEvent) {
+      if (isEditableKeyboardTarget(event.target)) {
+        return;
+      }
+
+      const movementKey = movementKeyFromEventCode(event.code);
+
+      if (!movementKey) {
+        return;
+      }
+
+      event.preventDefault();
+      pressedKeysRef.current.add(movementKey);
+    }
+
+    function handleWindowKeyUp(event: globalThis.KeyboardEvent) {
+      if (isEditableKeyboardTarget(event.target)) {
+        return;
+      }
+
+      const movementKey = movementKeyFromEventCode(event.code);
+
+      if (!movementKey) {
+        return;
+      }
+
+      event.preventDefault();
+      pressedKeysRef.current.delete(movementKey);
+    }
+
+    window.addEventListener('keydown', handleWindowKeyDown);
+    window.addEventListener('keyup', handleWindowKeyUp);
     window.addEventListener('blur', clearInteractionState);
 
     return () => {
+      window.removeEventListener('keydown', handleWindowKeyDown);
+      window.removeEventListener('keyup', handleWindowKeyUp);
       window.removeEventListener('blur', clearInteractionState);
     };
   }, []);
@@ -438,6 +472,19 @@ export function drawArena(
     context.fillStyle = '#f8fafc';
     context.fillText(player.role, x, y);
   }
+}
+
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target.isContentEditable ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
 }
 
 function drawTelegraphs(
