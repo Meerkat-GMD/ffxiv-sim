@@ -152,6 +152,7 @@ describe('App', () => {
       moveRole: vi.fn(),
       setMarkers: vi.fn(),
       setTargetMarkers: vi.fn(),
+      setTimeline: vi.fn(),
     };
     const realtimeConnector = vi.fn((options: RealtimeClientOptions) => {
       realtimeOptions = options;
@@ -618,6 +619,7 @@ describe('App', () => {
             moveRole: vi.fn(),
             setMarkers: vi.fn(),
             setTargetMarkers: vi.fn(),
+            setTimeline: vi.fn(),
           };
         }}
       />,
@@ -648,6 +650,7 @@ describe('App', () => {
       moveRole: vi.fn(),
       setMarkers: vi.fn(),
       setTargetMarkers: vi.fn(),
+      setTimeline: vi.fn(),
     };
     const realtimeConnector = vi.fn((options: RealtimeClientOptions) => {
       realtimeOptions = options;
@@ -727,6 +730,81 @@ describe('App', () => {
     expect(
       container?.querySelector<HTMLImageElement>('img[alt="Placed Waymark A"]'),
     ).not.toBeNull();
+  });
+
+  it('keeps locally edited room timeline events through stale realtime snapshots before playback', () => {
+    let realtimeOptions: RealtimeClientOptions | undefined;
+    const realtimeClient = {
+      claimRole: vi.fn(),
+      disconnect: vi.fn(),
+      moveRole: vi.fn(),
+      setMarkers: vi.fn(),
+      setTargetMarkers: vi.fn(),
+      setTimeline: vi.fn(),
+    };
+    const realtimeConnector = vi.fn((options: RealtimeClientOptions) => {
+      realtimeOptions = options;
+      return realtimeClient;
+    });
+    const emptyTimeline = {
+      activeTelegraphs: [],
+      events: [],
+      resolvedEffects: [],
+    };
+
+    window.history.pushState({}, '', '/?room=alpha');
+    renderAppElement(
+      <App
+        realtimeConnector={realtimeConnector}
+        realtimeUrl="http://localhost:3001"
+      />,
+    );
+
+    act(() => {
+      realtimeOptions?.onState({
+        claimedRoles: {},
+        markers: [],
+        players: createInitialPlayers(),
+        roomId: 'alpha',
+        targetMarkers: [],
+        timeline: emptyTimeline,
+      });
+    });
+
+    act(() => {
+      screenButton('Timeline Editor')?.click();
+    });
+
+    act(() => {
+      container
+        ?.querySelector<HTMLButtonElement>('button[aria-label="Add sleep debuff"]')
+        ?.click();
+    });
+
+    expect(realtimeClient.setTimeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        events: [expect.objectContaining({ type: 'apply_status' })],
+      }),
+    );
+
+    act(() => {
+      realtimeOptions?.onState({
+        claimedRoles: {},
+        markers: [],
+        players: createInitialPlayers(),
+        roomId: 'alpha',
+        targetMarkers: [],
+        timeline: emptyTimeline,
+      });
+    });
+
+    expect(container?.textContent).toContain('Sleep');
+
+    act(() => {
+      timelineButton('Play')?.click();
+    });
+
+    expect(container?.textContent).toContain('00:05 DPS sleep debuff');
   });
 
   it('keeps recent local movement from being overwritten by delayed realtime snapshots', () => {

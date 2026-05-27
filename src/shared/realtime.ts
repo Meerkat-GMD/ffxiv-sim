@@ -32,6 +32,11 @@ export type TargetMarkersSetPayload = {
   targetMarkers: EncounterTargetMarkerDocument[];
 };
 
+export type TimelineSetPayload = {
+  roomId: string;
+  timeline: TimelineState;
+};
+
 export type RoomSnapshot = {
   claimedRoles: Partial<Record<Role, string>>;
   encounterId?: string;
@@ -52,4 +57,5 @@ export type ClientToServerEvents = {
   'role:claim': (payload: RoleClaimPayload) => void;
   'room:join': (payload: RoomJoinPayload) => void;
   'targetMarkers:set': (payload: TargetMarkersSetPayload) => void;
+  'timeline:set': (payload: TimelineSetPayload) => void;
 };

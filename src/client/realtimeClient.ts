@@ -10,6 +10,7 @@ import {
   type RoomSnapshot,
   type ServerToClientEvents,
 } from '../shared/realtime';
+import { type TimelineState } from '../sim/timeline';
 
 export type ConnectionStatus =
   | 'connected'
@@ -44,6 +45,7 @@ export type RealtimeClient = {
   moveRole: (role: Role, position: Point) => void;
   setMarkers: (markers: EncounterMarkerDocument[]) => void;
   setTargetMarkers: (targetMarkers: EncounterTargetMarkerDocument[]) => void;
+  setTimeline: (timeline: TimelineState) => void;
 };
 
 export function connectRealtime({
@@ -82,6 +84,9 @@ export function connectRealtime({
     },
     setTargetMarkers(targetMarkers) {
       socket.emit('targetMarkers:set', { roomId, targetMarkers });
+    },
+    setTimeline(timeline) {
+      socket.emit('timeline:set', { roomId, timeline });
     },
   };
 }

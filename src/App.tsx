@@ -25,6 +25,7 @@ import {
   createSampleTimeline,
   validateTimelineEvents,
   type TimelineEvent,
+  type TimelineState,
 } from './sim/timeline';
 import { type EncounterDocument } from './shared/encounter';
 import {
@@ -69,6 +70,11 @@ type LocalTargetMarkersSnapshot = {
   updatedAt: number;
 };
 
+export type LocalTimelineSnapshot = {
+  timeline: TimelineState;
+  updatedAt: number;
+};
+
 function App({
   initialCombatStatuses,
   realtimeConnector = defaultRealtimeConnector,
@@ -108,6 +114,7 @@ function App({
   const localTargetMarkersRef = useRef<LocalTargetMarkersSnapshot | undefined>(
     undefined,
   );
+  const localTimelineRef = useRef<LocalTimelineSnapshot | undefined>(undefined);
   const lastRemoteMoveSentAtRef = useRef(0);
   const claimedRoles = new Set<Role>(otherClaimedRoles);
 
@@ -200,8 +207,27 @@ function App({
 
           return nextTargetMarkers;
         });
-        setTimeline(snapshot.timeline);
-        timelineRef.current = snapshot.timeline;
+        setTimeline(() => {
+          if (
+            localTimelineRef.current &&
+            areTimelineStatesEqual(
+              snapshot.timeline,
+              localTimelineRef.current.timeline,
+            )
+          ) {
+            localTimelineRef.current = undefined;
+          }
+
+          const nextTimeline = mergeRealtimeTimeline(
+            snapshot.timeline,
+            localTimelineRef.current,
+            Date.now(),
+          );
+
+          timelineRef.current = nextTimeline;
+
+          return nextTimeline;
+        });
         setOtherClaimedRoles(new Set(Object.keys(snapshot.claimedRoles) as Role[]));
       },
       onStatus: setConnectionStatus,
@@ -382,10 +408,9 @@ function App({
 
     setIsTimelinePlaying(false);
     setCombatStatuses(nextCombatStatuses);
-    setTimeline(nextTimeline);
+    commitTimeline(nextTimeline);
     setTimelineTime(0);
     combatStatusesRef.current = nextCombatStatuses;
-    timelineRef.current = nextTimeline;
     timelineTimeRef.current = 0;
   }
 
@@ -472,6 +497,18 @@ function App({
     };
     setTargetMarkers(nextMarkers);
     realtimeClientRef.current?.setTargetMarkers(nextMarkers);
+  }
+
+  function commitTimeline(timeline: TimelineState) {
+    const nextTimeline = cloneTimelineState(timeline);
+
+    timelineRef.current = nextTimeline;
+    localTimelineRef.current = {
+      timeline: nextTimeline,
+      updatedAt: Date.now(),
+    };
+    setTimeline(nextTimeline);
+    realtimeClientRef.current?.setTimeline(nextTimeline);
   }
 
   function handleMoveControlledRole(role: Role, position: { x: number; y: number }) {
@@ -682,6 +719,20 @@ export function mergeRealtimeTargetMarkers(
   return cloneTargetMarkers(snapshotTargetMarkers);
 }
 
+export function mergeRealtimeTimeline(
+  snapshotTimeline: TimelineState,
+  localTimeline: LocalTimelineSnapshot | undefined,
+  now: number,
+): TimelineState {
+  void now;
+
+  if (localTimeline) {
+    return cloneTimelineState(localTimeline.timeline);
+  }
+
+  return cloneTimelineState(snapshotTimeline);
+}
+
 function upsertPlacedMarker(
   currentMarkers: PlacedMarker[],
   selectedMarker: MarkerAsset,
@@ -748,6 +799,23 @@ function cloneTargetMarkers(markers: TargetMarker[]): TargetMarker[] {
   }));
 }
 
+function cloneTimelineState(timeline: TimelineState): TimelineState {
+  return {
+    activeTelegraphs: timeline.activeTelegraphs.map((telegraph) => ({
+      ...telegraph,
+      position: { ...telegraph.position },
+      shape: telegraph.shape ? structuredClone(telegraph.shape) : undefined,
+    })),
+    events: timeline.events.map((event) => structuredClone(event)),
+    resolvedEffects: timeline.resolvedEffects.map((effect) => ({
+      ...effect,
+      affectedRoles: [...effect.affectedRoles],
+      position: { ...effect.position },
+      shape: effect.shape ? structuredClone(effect.shape) : undefined,
+    })),
+  };
+}
+
 function removeMarkersByAssetSrc<T extends { asset: { src: string } }>(
   markers: T[],
   assetSrc: string,
@@ -811,6 +879,34 @@ function areTargetMarkerTargetsEqual(
   }
 
   return secondTarget.type === 'player' && firstTarget.role === secondTarget.role;
+}
+
+function areTimelineStatesEqual(
+  firstTimeline: TimelineState,
+  secondTimeline: TimelineState,
+): boolean {
+  return (
+    areTimelineJsonListsEqual(firstTimeline.events, secondTimeline.events) &&
+    areTimelineJsonListsEqual(
+      firstTimeline.activeTelegraphs,
+      secondTimeline.activeTelegraphs,
+    ) &&
+    areTimelineJsonListsEqual(
+      firstTimeline.resolvedEffects,
+      secondTimeline.resolvedEffects,
+    )
+  );
+}
+
+function areTimelineJsonListsEqual<T>(firstList: T[], secondList: T[]): boolean {
+  if (firstList.length !== secondList.length) {
+    return false;
+  }
+
+  return firstList.every(
+    (firstItem, index) =>
+      JSON.stringify(firstItem) === JSON.stringify(secondList[index]),
+  );
 }
 
 function defaultRealtimeConnector(options: RealtimeClientOptions): RealtimeClient {

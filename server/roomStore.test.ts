@@ -36,4 +36,27 @@ describe('room store', () => {
       y: -36,
     });
   });
+
+  it('stores edited room timeline events in snapshots', () => {
+    const store = createRoomStore();
+
+    store.setTimeline('alpha', {
+      activeTelegraphs: [],
+      events: [
+        {
+          duration: 5,
+          id: 'sleep-dps',
+          status: 'sleep',
+          target: { roleGroup: 'dps', selection: 'random' },
+          time: 5,
+          type: 'apply_status',
+        },
+      ],
+      resolvedEffects: [],
+    });
+
+    expect(store.snapshot('alpha').timeline.events).toEqual([
+      expect.objectContaining({ id: 'sleep-dps', type: 'apply_status' }),
+    ]);
+  });
 });

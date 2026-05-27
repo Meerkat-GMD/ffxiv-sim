@@ -39,6 +39,49 @@ describe('firebase realtime client adapter', () => {
     );
   });
 
+  it('normalizes Firebase timeline object fields into arrays', () => {
+    const api = createFirebaseApi();
+    const onState = vi.fn();
+
+    connectFirebaseRealtime({
+      api,
+      onState,
+      onStatus: vi.fn(),
+      roomId: 'alpha',
+      url: '',
+    });
+
+    api.emitRoom({
+      claimedRoles: {},
+      markers: [],
+      players: createInitialPlayers(),
+      roomId: 'alpha',
+      targetMarkers: [],
+      timeline: {
+        events: {
+          0: {
+            duration: 5,
+            id: 'sleep-dps',
+            status: 'sleep',
+            target: { roleGroup: 'dps', selection: 'random' },
+            time: 5,
+            type: 'apply_status',
+          },
+        },
+      } as never,
+    });
+
+    expect(onState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timeline: {
+          activeTelegraphs: [],
+          events: [expect.objectContaining({ id: 'sleep-dps' })],
+          resolvedEffects: [],
+        },
+      }),
+    );
+  });
+
   it('claims roles, moves owned roles, and cleans up on disconnect', () => {
     const api = createFirebaseApi();
     const client = connectFirebaseRealtime({
@@ -75,6 +118,20 @@ describe('firebase realtime client adapter', () => {
         target: { role: 'MT', type: 'player' },
       },
     ]);
+    client.setTimeline({
+      activeTelegraphs: [],
+      events: [
+        {
+          duration: 5,
+          id: 'sleep-dps',
+          status: 'sleep',
+          target: { roleGroup: 'dps', selection: 'random' },
+          time: 5,
+          type: 'apply_status',
+        },
+      ],
+      resolvedEffects: [],
+    });
     client.disconnect();
 
     expect(api.claimRole).toHaveBeenCalledWith('alpha', 'MT', expect.any(String));
@@ -94,6 +151,12 @@ describe('firebase realtime client adapter', () => {
         id: '/assets/xivplan/marker/attack1.png',
       }),
     ]);
+    expect(api.setTimeline).toHaveBeenCalledWith(
+      'alpha',
+      expect.objectContaining({
+        events: [expect.objectContaining({ type: 'apply_status' })],
+      }),
+    );
     expect(api.releaseClient).toHaveBeenCalledWith('alpha', expect.any(String));
     expect(api.unsubscribe).toHaveBeenCalled();
   });
@@ -114,6 +177,7 @@ function createFirebaseApi() {
     releaseClient: vi.fn(),
     setMarkers: vi.fn(),
     setTargetMarkers: vi.fn(),
+    setTimeline: vi.fn(),
     subscribeRoom: vi.fn((_roomId, handler) => {
       roomHandler = handler;
       return api.unsubscribe;

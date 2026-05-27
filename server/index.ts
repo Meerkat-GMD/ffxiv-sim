@@ -84,6 +84,14 @@ export function createRealtimeServer(httpServer: HttpServer) {
       }
     });
 
+    socket.on('timeline:set', ({ roomId, timeline }) => {
+      const result = roomStore.setTimeline(roomId, timeline);
+
+      if (result.ok) {
+        io.to(roomId).emit('room:state', result.snapshot);
+      }
+    });
+
     socket.on('disconnect', () => {
       const roomId = socket.data.roomId;
 

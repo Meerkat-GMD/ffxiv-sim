@@ -38,7 +38,15 @@ export type FirebaseRoomValue = {
   targetMarkers?:
     | EncounterTargetMarkerDocument[]
     | Record<string, EncounterTargetMarkerDocument>;
-  timeline?: TimelineState;
+  timeline?: Partial<{
+    activeTelegraphs:
+      | TimelineState['activeTelegraphs']
+      | Record<string, TimelineState['activeTelegraphs'][number]>;
+    events: TimelineState['events'] | Record<string, TimelineState['events'][number]>;
+    resolvedEffects:
+      | TimelineState['resolvedEffects']
+      | Record<string, TimelineState['resolvedEffects'][number]>;
+  }>;
 };
 
 export type FirebaseRealtimeApi = {
@@ -51,6 +59,7 @@ export type FirebaseRealtimeApi = {
     roomId: string,
     targetMarkers: EncounterTargetMarkerDocument[],
   ) => void;
+  setTimeline: (roomId: string, timeline: TimelineState) => void;
   subscribeRoom: (
     roomId: string,
     onRoom: (room: FirebaseRoomValue | undefined) => void,
@@ -102,6 +111,9 @@ export function connectFirebaseRealtime({
     },
     setTargetMarkers(targetMarkers) {
       api.setTargetMarkers(roomId, targetMarkers);
+    },
+    setTimeline(timeline) {
+      api.setTimeline(roomId, timeline);
     },
   };
 }
@@ -206,6 +218,9 @@ function createDatabaseFirebaseRealtimeApi(database: Database): FirebaseRealtime
     async setTargetMarkers(roomId, targetMarkers) {
       await set(ref(database, `rooms/${roomId}/targetMarkers`), targetMarkers);
     },
+    async setTimeline(roomId, timeline) {
+      await set(ref(database, `rooms/${roomId}/timeline`), timeline);
+    },
     subscribeRoom(roomId, onRoom) {
       return onValue(ref(database, `rooms/${roomId}`), (snapshot) => {
         onRoom(snapshot.val() as FirebaseRoomValue | undefined);
@@ -222,6 +237,7 @@ function createMissingFirebaseApi(): FirebaseRealtimeApi {
     releaseClient: noop,
     setMarkers: noop,
     setTargetMarkers: noop,
+    setTimeline: noop,
     subscribeRoom() {
       return noop;
     },
@@ -237,11 +253,29 @@ function toRoomSnapshot(roomId: string, room: FirebaseRoomValue | undefined): Ro
     players: normalizePlayers(room?.players),
     roomId: room?.roomId ?? roomId,
     targetMarkers: normalizeList(room?.targetMarkers),
-    timeline: room?.timeline ?? {
-      activeTelegraphs: [],
-      events: encounter.timeline.events,
-      resolvedEffects: [],
-    },
+    timeline: normalizeTimeline(room?.timeline, encounter.timeline.events),
+  };
+}
+
+function normalizeTimeline(
+  timeline: FirebaseRoomValue['timeline'],
+  fallbackEvents: TimelineState['events'],
+): TimelineState {
+  return {
+    activeTelegraphs: normalizeList(timeline?.activeTelegraphs).map((telegraph) => ({
+      ...telegraph,
+      position: { ...telegraph.position },
+      shape: telegraph.shape ? structuredClone(telegraph.shape) : undefined,
+    })),
+    events: normalizeList(timeline?.events ?? fallbackEvents).map((event) =>
+      structuredClone(event),
+    ),
+    resolvedEffects: normalizeList(timeline?.resolvedEffects).map((effect) => ({
+      ...effect,
+      affectedRoles: [...effect.affectedRoles],
+      position: { ...effect.position },
+      shape: effect.shape ? structuredClone(effect.shape) : undefined,
+    })),
   };
 }
 

@@ -24,6 +24,7 @@ type MoveRoleResult =
 type SetMarkersResult = { ok: true; snapshot: RoomSnapshot };
 
 type SetTargetMarkersResult = { ok: true; snapshot: RoomSnapshot };
+type SetTimelineResult = { ok: true; snapshot: RoomSnapshot };
 
 type RoomState = {
   claimedRoles: Partial<Record<Role, string>>;
@@ -142,6 +143,14 @@ export function createRoomStore() {
     return { ok: true, snapshot: snapshot(roomId) };
   }
 
+  function setTimeline(roomId: string, timeline: TimelineState): SetTimelineResult {
+    const room = getOrCreateRoom(roomId);
+
+    room.timeline = structuredClone(timeline);
+
+    return { ok: true, snapshot: snapshot(roomId) };
+  }
+
   function releaseSocket(socketId: string) {
     for (const room of rooms.values()) {
       const releasedRoles = ROLES.filter(
@@ -197,6 +206,7 @@ export function createRoomStore() {
     releaseSocket,
     setMarkers,
     setTargetMarkers,
+    setTimeline,
     snapshot,
   };
 }
