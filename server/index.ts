@@ -68,6 +68,14 @@ export function createRealtimeServer(httpServer: HttpServer) {
       }
     });
 
+    socket.on('markers:set', ({ markers, roomId }) => {
+      const result = roomStore.setMarkers(roomId, markers);
+
+      if (result.ok) {
+        io.to(roomId).emit('room:state', result.snapshot);
+      }
+    });
+
     socket.on('disconnect', () => {
       const roomId = socket.data.roomId;
 

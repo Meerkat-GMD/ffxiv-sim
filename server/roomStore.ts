@@ -20,6 +20,8 @@ type MoveRoleResult =
   | { ok: true; snapshot: RoomSnapshot }
   | { ok: false; reason: 'not_role_owner' | 'role_not_claimed' };
 
+type SetMarkersResult = { ok: true; snapshot: RoomSnapshot };
+
 type RoomState = {
   claimedRoles: Partial<Record<Role, string>>;
   encounter: EncounterDocument;
@@ -113,6 +115,17 @@ export function createRoomStore() {
     return { ok: true, snapshot: snapshot(roomId) };
   }
 
+  function setMarkers(
+    roomId: string,
+    markers: EncounterMarkerDocument[],
+  ): SetMarkersResult {
+    const room = getOrCreateRoom(roomId);
+
+    room.markers = structuredClone(markers);
+
+    return { ok: true, snapshot: snapshot(roomId) };
+  }
+
   function releaseSocket(socketId: string) {
     for (const room of rooms.values()) {
       const releasedRoles = ROLES.filter(
@@ -165,6 +178,7 @@ export function createRoomStore() {
     getOrCreateRoom,
     moveRole,
     releaseSocket,
+    setMarkers,
     snapshot,
   };
 }

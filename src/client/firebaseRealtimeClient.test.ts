@@ -50,6 +50,17 @@ describe('firebase realtime client adapter', () => {
 
     client.claimRole('MT');
     client.moveRole('MT', { x: 999, y: 0 });
+    client.setMarkers([
+      {
+        asset: {
+          alt: 'Waymark A',
+          label: 'A',
+          src: '/assets/xivplan/marker/waymark_a.png',
+        },
+        id: '/assets/xivplan/marker/waymark_a.png',
+        position: { x: 0, y: 0 },
+      },
+    ]);
     client.disconnect();
 
     expect(api.claimRole).toHaveBeenCalledWith('alpha', 'MT', expect.any(String));
@@ -59,6 +70,11 @@ describe('firebase realtime client adapter', () => {
       expect.objectContaining({ x: expect.any(Number), y: 0 }),
       expect.any(String),
     );
+    expect(api.setMarkers).toHaveBeenCalledWith('alpha', [
+      expect.objectContaining({
+        id: '/assets/xivplan/marker/waymark_a.png',
+      }),
+    ]);
     expect(api.releaseClient).toHaveBeenCalledWith('alpha', expect.any(String));
     expect(api.unsubscribe).toHaveBeenCalled();
   });
@@ -77,6 +93,7 @@ function createFirebaseApi() {
     ensureRoom: vi.fn(),
     moveRole: vi.fn(),
     releaseClient: vi.fn(),
+    setMarkers: vi.fn(),
     subscribeRoom: vi.fn((_roomId, handler) => {
       roomHandler = handler;
       return api.unsubscribe;

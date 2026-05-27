@@ -21,6 +21,11 @@ export type PlayerMovePayload = {
   roomId: string;
 };
 
+export type MarkersSetPayload = {
+  markers: EncounterMarkerDocument[];
+  roomId: string;
+};
+
 export type RoomSnapshot = {
   claimedRoles: Partial<Record<Role, string>>;
   encounterId?: string;
@@ -35,6 +40,7 @@ export type ServerToClientEvents = {
 };
 
 export type ClientToServerEvents = {
+  'markers:set': (payload: MarkersSetPayload) => void;
   'player:move': (payload: PlayerMovePayload) => void;
   'role:claim': (payload: RoleClaimPayload) => void;
   'room:join': (payload: RoomJoinPayload) => void;

@@ -39,6 +39,7 @@ export type FirebaseRealtimeApi = {
   ensureRoom: (roomId: string) => void;
   moveRole: (roomId: string, role: Role, position: Point, clientId: string) => void;
   releaseClient: (roomId: string, clientId: string) => void;
+  setMarkers: (roomId: string, markers: EncounterMarkerDocument[]) => void;
   subscribeRoom: (
     roomId: string,
     onRoom: (room: FirebaseRoomValue | undefined) => void,
@@ -84,6 +85,9 @@ export function connectFirebaseRealtime({
         clampPointToCircle(position, { x: 0, y: 0 }, ARENA_RADIUS, TOKEN_RADIUS),
         clientId,
       );
+    },
+    setMarkers(markers) {
+      api.setMarkers(roomId, markers);
     },
   };
 }
@@ -178,8 +182,11 @@ function createDatabaseFirebaseRealtimeApi(database: Database): FirebaseRealtime
             await update(ref(database, `rooms/${roomId}/players/${role}`), {
               connected: false,
             });
-          }),
+        }),
       );
+    },
+    async setMarkers(roomId, markers) {
+      await set(ref(database, `rooms/${roomId}/markers`), markers);
     },
     subscribeRoom(roomId, onRoom) {
       return onValue(ref(database, `rooms/${roomId}`), (snapshot) => {
@@ -195,6 +202,7 @@ function createMissingFirebaseApi(): FirebaseRealtimeApi {
     ensureRoom: noop,
     moveRole: noop,
     releaseClient: noop,
+    setMarkers: noop,
     subscribeRoom() {
       return noop;
     },

@@ -30,6 +30,7 @@ import { TimelineEditor } from './ui/TimelineEditor';
 const TIMELINE_TICK_SECONDS = 0.05;
 const TIMELINE_TICK_MS = TIMELINE_TICK_SECONDS * 1000;
 const LOCAL_MOVE_SNAPSHOT_GRACE_MS = 250;
+const LOCAL_MARKER_SNAPSHOT_GRACE_MS = 500;
 const REMOTE_MOVE_SEND_INTERVAL_MS = 45;
 
 type AppProps = {
@@ -43,6 +44,11 @@ type LocalMoveSnapshot = {
   movedAt: number;
   position: { x: number; y: number };
   role: Role;
+};
+
+type LocalMarkersSnapshot = {
+  markers: PlacedMarker[];
+  updatedAt: number;
 };
 
 function App({
@@ -70,8 +76,10 @@ function App({
   const timelineRef = useRef(timeline);
   const timelineTimeRef = useRef(timelineTime);
   const playersRef = useRef(players);
+  const placedMarkersRef = useRef(placedMarkers);
   const controlledRoleRef = useRef(controlledRole);
   const localMoveRef = useRef<LocalMoveSnapshot | undefined>(undefined);
+  const localMarkersRef = useRef<LocalMarkersSnapshot | undefined>(undefined);
   const lastRemoteMoveSentAtRef = useRef(0);
   const claimedRoles = new Set<Role>(otherClaimedRoles);
 
@@ -82,6 +90,10 @@ function App({
   useEffect(() => {
     playersRef.current = players;
   }, [players]);
+
+  useEffect(() => {
+    placedMarkersRef.current = placedMarkers;
+  }, [placedMarkers]);
 
   useEffect(() => {
     controlledRoleRef.current = controlledRole;
@@ -110,13 +122,17 @@ function App({
 
           return nextPlayers;
         });
-        setPlacedMarkers(
-          snapshot.markers.map((marker) => ({
-            ...marker,
-            asset: marker.asset,
-            position: { ...marker.position },
-          })),
-        );
+        setPlacedMarkers(() => {
+          const nextMarkers = mergeRealtimeMarkers(
+            snapshot.markers,
+            localMarkersRef.current,
+            Date.now(),
+          );
+
+          placedMarkersRef.current = nextMarkers;
+
+          return nextMarkers;
+        });
         setTimeline(snapshot.timeline);
         timelineRef.current = snapshot.timeline;
         setOtherClaimedRoles(new Set(Object.keys(snapshot.claimedRoles) as Role[]));
@@ -281,34 +297,30 @@ function App({
       return;
     }
 
-    setPlacedMarkers((currentMarkers) => {
-      const existingMarker = currentMarkers.find(
-        (marker) => marker.asset.src === selectedMarker.src,
-      );
-
-      if (existingMarker) {
-        return currentMarkers.map((marker) =>
-          marker.id === existingMarker.id ? { ...marker, position } : marker,
-        );
-      }
-
-      return [
-        ...currentMarkers,
-        {
-          asset: selectedMarker,
-          id: selectedMarker.src,
-          position,
-        },
-      ];
-    });
+    commitPlacedMarkers(
+      upsertPlacedMarker(placedMarkersRef.current, selectedMarker, position),
+    );
+    setSelectedMarker(undefined);
   }
 
   function handleMoveMarker(markerId: string, position: { x: number; y: number }) {
-    setPlacedMarkers((currentMarkers) =>
-      currentMarkers.map((marker) =>
+    commitPlacedMarkers(
+      placedMarkersRef.current.map((marker) =>
         marker.id === markerId ? { ...marker, position } : marker,
       ),
     );
+  }
+
+  function commitPlacedMarkers(markers: PlacedMarker[]) {
+    const nextMarkers = clonePlacedMarkers(markers);
+
+    placedMarkersRef.current = nextMarkers;
+    localMarkersRef.current = {
+      markers: nextMarkers,
+      updatedAt: Date.now(),
+    };
+    setPlacedMarkers(nextMarkers);
+    realtimeClientRef.current?.setMarkers(nextMarkers);
   }
 
   function handleMoveControlledRole(role: Role, position: { x: number; y: number }) {
@@ -475,6 +487,54 @@ export function mergeRealtimePlayers(
         }
       : player,
   );
+}
+
+export function mergeRealtimeMarkers(
+  snapshotMarkers: PlacedMarker[],
+  localMarkers: LocalMarkersSnapshot | undefined,
+  now: number,
+): PlacedMarker[] {
+  if (
+    localMarkers &&
+    now - localMarkers.updatedAt <= LOCAL_MARKER_SNAPSHOT_GRACE_MS
+  ) {
+    return clonePlacedMarkers(localMarkers.markers);
+  }
+
+  return clonePlacedMarkers(snapshotMarkers);
+}
+
+function upsertPlacedMarker(
+  currentMarkers: PlacedMarker[],
+  selectedMarker: MarkerAsset,
+  position: { x: number; y: number },
+): PlacedMarker[] {
+  const existingMarker = currentMarkers.find(
+    (marker) => marker.asset.src === selectedMarker.src,
+  );
+
+  if (existingMarker) {
+    return currentMarkers.map((marker) =>
+      marker.id === existingMarker.id ? { ...marker, position } : marker,
+    );
+  }
+
+  return [
+    ...currentMarkers,
+    {
+      asset: selectedMarker,
+      id: selectedMarker.src,
+      position,
+    },
+  ];
+}
+
+function clonePlacedMarkers(markers: PlacedMarker[]): PlacedMarker[] {
+  return markers.map((marker) => ({
+    asset: { ...marker.asset },
+    id: marker.id,
+    position: { ...marker.position },
+  }));
 }
 
 function defaultRealtimeConnector(options: RealtimeClientOptions): RealtimeClient {

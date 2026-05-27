@@ -1,6 +1,7 @@
 import { io } from 'socket.io-client';
 import { type Point } from '../sim/geometry';
 import { type Role } from '../sim/roles';
+import { type EncounterMarkerDocument } from '../shared/encounter';
 import {
   type ClientToServerEvents,
   type RoomSnapshot,
@@ -38,6 +39,7 @@ export type RealtimeClient = {
   claimRole: (role: Role) => void;
   disconnect: () => void;
   moveRole: (role: Role, position: Point) => void;
+  setMarkers: (markers: EncounterMarkerDocument[]) => void;
 };
 
 export function connectRealtime({
@@ -70,6 +72,9 @@ export function connectRealtime({
     },
     moveRole(role, position) {
       socket.emit('player:move', { position, role, roomId });
+    },
+    setMarkers(markers) {
+      socket.emit('markers:set', { markers, roomId });
     },
   };
 }

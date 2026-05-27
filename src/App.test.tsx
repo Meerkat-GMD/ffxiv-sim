@@ -114,6 +114,7 @@ describe('App', () => {
       claimRole: vi.fn(),
       disconnect: vi.fn(),
       moveRole: vi.fn(),
+      setMarkers: vi.fn(),
     };
     const realtimeConnector = vi.fn((options: RealtimeClientOptions) => {
       realtimeOptions = options;
@@ -346,6 +347,62 @@ describe('App', () => {
     );
   });
 
+  it('clears marker placement mode after placing one marker', () => {
+    renderApp();
+
+    const markerButton = container?.querySelector<HTMLButtonElement>(
+      'button[data-marker-src="/assets/xivplan/marker/waymark_a.png"]',
+    );
+    const canvas = container?.querySelector<HTMLCanvasElement>('canvas');
+
+    expect(markerButton).not.toBeNull();
+    expect(canvas).not.toBeNull();
+
+    vi.spyOn(canvas!, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 720,
+      height: 720,
+      top: 0,
+      right: 720,
+      bottom: 720,
+      left: 0,
+      toJSON: () => undefined,
+    });
+
+    act(() => {
+      markerButton?.click();
+    });
+
+    act(() => {
+      canvas?.dispatchEvent(
+        new MouseEvent('click', {
+          bubbles: true,
+          clientX: 360,
+          clientY: 360,
+        }),
+      );
+    });
+
+    expect(markerButton?.getAttribute('aria-pressed')).toBe('false');
+
+    act(() => {
+      canvas?.dispatchEvent(
+        new MouseEvent('click', {
+          bubbles: true,
+          clientX: 540,
+          clientY: 360,
+        }),
+      );
+    });
+
+    const placedMarker = container?.querySelector<HTMLImageElement>(
+      'img[alt="Placed Waymark A"]',
+    );
+
+    expect(placedMarker?.style.left).toBe('50%');
+  });
+
   it('keeps only one copy of the same placed marker', () => {
     renderApp();
 
@@ -384,6 +441,10 @@ describe('App', () => {
     });
 
     act(() => {
+      markerButton?.click();
+    });
+
+    act(() => {
       canvas?.dispatchEvent(
         new MouseEvent('click', {
           bubbles: true,
@@ -399,6 +460,92 @@ describe('App', () => {
 
     expect(placedMarkers).toHaveLength(1);
     expect(placedMarkers?.[0]?.style.left).not.toBe('50%');
+  });
+
+  it('keeps locally placed room markers through stale realtime movement snapshots', () => {
+    let realtimeOptions: RealtimeClientOptions | undefined;
+    const realtimeClient = {
+      claimRole: vi.fn(),
+      disconnect: vi.fn(),
+      moveRole: vi.fn(),
+      setMarkers: vi.fn(),
+    };
+    const realtimeConnector = vi.fn((options: RealtimeClientOptions) => {
+      realtimeOptions = options;
+      return realtimeClient;
+    });
+
+    window.history.pushState({}, '', '/?room=alpha');
+    renderAppElement(
+      <App
+        realtimeConnector={realtimeConnector}
+        realtimeUrl="http://localhost:3001"
+      />,
+    );
+
+    act(() => {
+      realtimeOptions?.onState({
+        claimedRoles: {},
+        markers: [],
+        players: createInitialPlayers(),
+        roomId: 'alpha',
+        timeline: createSampleTimeline(),
+      });
+    });
+
+    const markerButton = container?.querySelector<HTMLButtonElement>(
+      'button[data-marker-src="/assets/xivplan/marker/waymark_a.png"]',
+    );
+    const canvas = container?.querySelector<HTMLCanvasElement>('canvas');
+
+    expect(markerButton).not.toBeNull();
+    expect(canvas).not.toBeNull();
+
+    vi.spyOn(canvas!, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 720,
+      height: 720,
+      top: 0,
+      right: 720,
+      bottom: 720,
+      left: 0,
+      toJSON: () => undefined,
+    });
+
+    act(() => {
+      markerButton?.click();
+    });
+
+    act(() => {
+      canvas?.dispatchEvent(
+        new MouseEvent('click', {
+          bubbles: true,
+          clientX: 360,
+          clientY: 360,
+        }),
+      );
+    });
+
+    expect(realtimeClient.setMarkers).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: '/assets/xivplan/marker/waymark_a.png',
+      }),
+    ]);
+
+    act(() => {
+      realtimeOptions?.onState({
+        claimedRoles: {},
+        markers: [],
+        players: createInitialPlayers(),
+        roomId: 'alpha',
+        timeline: createSampleTimeline(),
+      });
+    });
+
+    expect(
+      container?.querySelector<HTMLImageElement>('img[alt="Placed Waymark A"]'),
+    ).not.toBeNull();
   });
 
   it('keeps recent local movement from being overwritten by delayed realtime snapshots', () => {
