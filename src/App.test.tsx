@@ -4,7 +4,11 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import App, { mergeRealtimePlayers } from './App';
+import App, {
+  mergeRealtimeMarkers,
+  mergeRealtimePlayers,
+  mergeRealtimeTargetMarkers,
+} from './App';
 import {
   type RealtimeClient,
   type RealtimeClientOptions,
@@ -674,6 +678,58 @@ describe('App', () => {
     expect(mergedAfterMoveSettles.find((player) => player.role === 'MT')?.position).toEqual(
       snapshotPlayers.find((player) => player.role === 'MT')?.position,
     );
+  });
+
+  it('keeps local marker deletion over stale room snapshots until the server catches up', () => {
+    const staleSnapshotMarkers = [
+      {
+        asset: {
+          alt: 'Waymark 1',
+          category: 'waymark' as const,
+          label: '1',
+          src: '/assets/xivplan/marker/waymark_1.png',
+        },
+        id: '/assets/xivplan/marker/waymark_1.png',
+        position: { x: 0, y: 0 },
+      },
+    ];
+
+    expect(
+      mergeRealtimeMarkers(
+        staleSnapshotMarkers,
+        {
+          markers: [],
+          updatedAt: 1000,
+        },
+        5000,
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps local combat target markers over stale movement snapshots', () => {
+    const localTargetMarkers = [
+      {
+        asset: {
+          alt: 'Attack marker 1',
+          category: 'combat' as const,
+          label: 'Atk',
+          src: '/assets/xivplan/marker/attack1.png',
+        },
+        id: '/assets/xivplan/marker/attack1.png',
+        target: { role: 'MT' as const, type: 'player' as const },
+      },
+    ];
+
+    expect(
+      mergeRealtimeTargetMarkers(
+        [],
+        {
+          targetMarkers: localTargetMarkers,
+          updatedAt: 1000,
+        },
+        5000,
+      ),
+    ).toEqual(localTargetMarkers);
   });
 
   function timelineButton(label: string) {

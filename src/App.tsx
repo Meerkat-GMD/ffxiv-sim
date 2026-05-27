@@ -35,7 +35,6 @@ import { TimelineEditor } from './ui/TimelineEditor';
 const TIMELINE_TICK_SECONDS = 0.05;
 const TIMELINE_TICK_MS = TIMELINE_TICK_SECONDS * 1000;
 const LOCAL_MOVE_SNAPSHOT_GRACE_MS = 250;
-const LOCAL_MARKER_SNAPSHOT_GRACE_MS = 500;
 const REMOTE_MOVE_SEND_INTERVAL_MS = 45;
 
 type AppProps = {
@@ -142,6 +141,16 @@ function App({
           return nextPlayers;
         });
         setPlacedMarkers(() => {
+          if (
+            localMarkersRef.current &&
+            arePlacedMarkerListsEqual(
+              snapshot.markers,
+              localMarkersRef.current.markers,
+            )
+          ) {
+            localMarkersRef.current = undefined;
+          }
+
           const nextMarkers = mergeRealtimeMarkers(
             snapshot.markers,
             localMarkersRef.current,
@@ -153,6 +162,16 @@ function App({
           return nextMarkers;
         });
         setTargetMarkers(() => {
+          if (
+            localTargetMarkersRef.current &&
+            areTargetMarkerListsEqual(
+              snapshot.targetMarkers,
+              localTargetMarkersRef.current.targetMarkers,
+            )
+          ) {
+            localTargetMarkersRef.current = undefined;
+          }
+
           const nextTargetMarkers = mergeRealtimeTargetMarkers(
             snapshot.targetMarkers,
             localTargetMarkersRef.current,
@@ -591,10 +610,9 @@ export function mergeRealtimeMarkers(
   localMarkers: LocalMarkersSnapshot | undefined,
   now: number,
 ): PlacedMarker[] {
-  if (
-    localMarkers &&
-    now - localMarkers.updatedAt <= LOCAL_MARKER_SNAPSHOT_GRACE_MS
-  ) {
+  void now;
+
+  if (localMarkers) {
     return clonePlacedMarkers(localMarkers.markers);
   }
 
@@ -606,10 +624,9 @@ export function mergeRealtimeTargetMarkers(
   localTargetMarkers: LocalTargetMarkersSnapshot | undefined,
   now: number,
 ): TargetMarker[] {
-  if (
-    localTargetMarkers &&
-    now - localTargetMarkers.updatedAt <= LOCAL_MARKER_SNAPSHOT_GRACE_MS
-  ) {
+  void now;
+
+  if (localTargetMarkers) {
     return cloneTargetMarkers(localTargetMarkers.targetMarkers);
   }
 
@@ -680,6 +697,64 @@ function cloneTargetMarkers(markers: TargetMarker[]): TargetMarker[] {
     id: marker.id,
     target: { ...marker.target },
   }));
+}
+
+function arePlacedMarkerListsEqual(
+  firstMarkers: PlacedMarker[],
+  secondMarkers: PlacedMarker[],
+): boolean {
+  if (firstMarkers.length !== secondMarkers.length) {
+    return false;
+  }
+
+  return firstMarkers.every((firstMarker) => {
+    const secondMarker = secondMarkers.find(
+      (marker) => marker.id === firstMarker.id,
+    );
+
+    return (
+      secondMarker !== undefined &&
+      firstMarker.asset.src === secondMarker.asset.src &&
+      firstMarker.position.x === secondMarker.position.x &&
+      firstMarker.position.y === secondMarker.position.y
+    );
+  });
+}
+
+function areTargetMarkerListsEqual(
+  firstMarkers: TargetMarker[],
+  secondMarkers: TargetMarker[],
+): boolean {
+  if (firstMarkers.length !== secondMarkers.length) {
+    return false;
+  }
+
+  return firstMarkers.every((firstMarker) => {
+    const secondMarker = secondMarkers.find(
+      (marker) => marker.id === firstMarker.id,
+    );
+
+    return (
+      secondMarker !== undefined &&
+      firstMarker.asset.src === secondMarker.asset.src &&
+      areTargetMarkerTargetsEqual(firstMarker.target, secondMarker.target)
+    );
+  });
+}
+
+function areTargetMarkerTargetsEqual(
+  firstTarget: TargetMarkerTarget,
+  secondTarget: TargetMarkerTarget,
+): boolean {
+  if (firstTarget.type !== secondTarget.type) {
+    return false;
+  }
+
+  if (firstTarget.type === 'enemy') {
+    return true;
+  }
+
+  return secondTarget.type === 'player' && firstTarget.role === secondTarget.role;
 }
 
 function defaultRealtimeConnector(options: RealtimeClientOptions): RealtimeClient {
