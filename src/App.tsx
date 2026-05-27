@@ -333,7 +333,11 @@ function App({
   }
 
   function handleResetTimeline() {
-    const nextTimeline = createSampleTimeline();
+    const nextTimeline = {
+      activeTelegraphs: [],
+      events: timelineRef.current.events.map((event) => structuredClone(event)),
+      resolvedEffects: [],
+    };
     const nextCombatStatuses = resetCombatStatuses();
 
     setCombatStatuses(nextCombatStatuses);

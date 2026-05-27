@@ -265,6 +265,30 @@ describe('App', () => {
     vi.useRealTimers();
   });
 
+  it('keeps edited timeline events when reset returns playback to zero', () => {
+    renderApp();
+
+    act(() => {
+      screenButton('Timeline Editor')?.click();
+    });
+
+    act(() => {
+      container
+        ?.querySelector<HTMLButtonElement>('button[aria-label="Add sleep debuff"]')
+        ?.click();
+    });
+
+    expect(container?.textContent).toContain('Sleep');
+
+    act(() => {
+      timelineButton('Reset')?.click();
+    });
+
+    expect(container?.textContent).toContain('00.00s');
+    expect(container?.textContent).toContain('Sleep');
+    expect(container?.textContent).toContain('00:05 DPS sleep debuff');
+  });
+
   it('plays and resets timeline under StrictMode', () => {
     vi.useFakeTimers();
     renderAppElement(
