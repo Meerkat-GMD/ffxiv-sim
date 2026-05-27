@@ -15,8 +15,16 @@ import {
 
 const WAYMARK_A = {
   alt: 'Waymark A',
+  category: 'waymark' as const,
   label: 'A',
   src: '/assets/xivplan/marker/waymark_a.png',
+};
+
+const ATTACK_MARKER_1 = {
+  alt: 'Attack marker 1',
+  category: 'combat' as const,
+  label: 'Atk',
+  src: '/assets/xivplan/marker/attack1.png',
 };
 
 (
@@ -322,6 +330,80 @@ describe('ArenaCanvas keyboard scope', () => {
     expect(onPlaceMarker).toHaveBeenCalledWith({ x: 0, y: 0 });
   });
 
+  it('places combat markers on the clicked player instead of the floor', () => {
+    const onPlaceMarker = vi.fn();
+    const onPlaceTargetMarker = vi.fn();
+    const canvas = renderArenaCanvas(undefined, {
+      onPlaceMarker,
+      onPlaceTargetMarker,
+      selectedMarker: ATTACK_MARKER_1,
+    });
+
+    expect(canvas).not.toBeNull();
+
+    vi.spyOn(canvas!, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 720,
+      height: 720,
+      top: 0,
+      right: 720,
+      bottom: 720,
+      left: 0,
+      toJSON: () => undefined,
+    });
+
+    act(() => {
+      canvas?.dispatchEvent(
+        new MouseEvent('click', {
+          bubbles: true,
+          clientX: 360,
+          clientY: 173,
+        }),
+      );
+    });
+
+    expect(onPlaceMarker).not.toHaveBeenCalled();
+    expect(onPlaceTargetMarker).toHaveBeenCalledWith({
+      role: 'MT',
+      type: 'player',
+    });
+  });
+
+  it('places combat markers on the enemy token at the arena center', () => {
+    const onPlaceTargetMarker = vi.fn();
+    const canvas = renderArenaCanvas(undefined, {
+      onPlaceTargetMarker,
+      selectedMarker: ATTACK_MARKER_1,
+    });
+
+    expect(canvas).not.toBeNull();
+
+    vi.spyOn(canvas!, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 720,
+      height: 720,
+      top: 0,
+      right: 720,
+      bottom: 720,
+      left: 0,
+      toJSON: () => undefined,
+    });
+
+    act(() => {
+      canvas?.dispatchEvent(
+        new MouseEvent('click', {
+          bubbles: true,
+          clientX: 360,
+          clientY: 360,
+        }),
+      );
+    });
+
+    expect(onPlaceTargetMarker).toHaveBeenCalledWith({ type: 'enemy' });
+  });
+
   it('does not place a marker when no marker is selected', () => {
     const onPlaceMarker = vi.fn();
     const canvas = renderArenaCanvas(undefined, { onPlaceMarker });
@@ -408,6 +490,39 @@ describe('ArenaCanvas keyboard scope', () => {
       x: expect.closeTo(115.3846, 4),
       y: 0,
     });
+  });
+
+  it('renders target markers attached to moving players', () => {
+    const players = createInitialPlayers().map((player) =>
+      player.role === 'MT'
+        ? { ...player, position: { x: 40, y: -80 } }
+        : player,
+    );
+
+    renderArenaCanvas(undefined, {
+      players,
+      targetMarkers: [
+        {
+          asset: ATTACK_MARKER_1,
+          id: ATTACK_MARKER_1.src,
+          target: { role: 'MT', type: 'player' },
+        },
+      ],
+    });
+
+    const targetMarker = container?.querySelector<HTMLImageElement>(
+      'img[alt="Target Attack marker 1"]',
+    );
+
+    expect(targetMarker).not.toBeNull();
+    expect(Number.parseFloat(targetMarker?.style.left ?? '')).toBeCloseTo(
+      58.666,
+      1,
+    );
+    expect(Number.parseFloat(targetMarker?.style.top ?? '')).toBeCloseTo(
+      32.666,
+      1,
+    );
   });
 });
 

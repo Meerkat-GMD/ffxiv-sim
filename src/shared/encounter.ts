@@ -1,4 +1,5 @@
 import { createInitialPlayers, type Player } from '../sim/players';
+import { ROLES, type Role } from '../sim/roles';
 import {
   validateTimelineEvents,
   type TimelineEvent,
@@ -12,6 +13,7 @@ export type ArenaDocument = {
 export type EncounterMarkerDocument = {
   asset: {
     alt: string;
+    category: 'combat' | 'waymark';
     label: string;
     src: string;
   };
@@ -22,12 +24,29 @@ export type EncounterMarkerDocument = {
   };
 };
 
+export type EncounterTargetMarkerDocument = {
+  asset: {
+    alt: string;
+    category: 'combat' | 'waymark';
+    label: string;
+    src: string;
+  };
+  id: string;
+  target:
+    | { type: 'enemy' }
+    | {
+        role: Role;
+        type: 'player';
+      };
+};
+
 export type EncounterDocument = {
   arena: ArenaDocument;
   markers: EncounterMarkerDocument[];
   name: string;
   players: Player[];
   schemaVersion: 1;
+  targetMarkers: EncounterTargetMarkerDocument[];
   timeline: {
     events: TimelineEvent[];
   };
@@ -40,6 +59,7 @@ export function createDefaultEncounter(): EncounterDocument {
     name: 'Practice Encounter',
     players: createInitialPlayers(),
     schemaVersion: 1,
+    targetMarkers: [],
     timeline: { events: validateTimelineEvents([]) },
   };
 }
@@ -60,6 +80,7 @@ export function parseEncounterDocument(value: unknown): EncounterDocument {
   const arena = parseArena(value.arena);
   const players = parsePlayers(value.players);
   const markers = parseMarkers(value.markers);
+  const targetMarkers = parseTargetMarkers(value.targetMarkers);
   const timeline = parseTimeline(value.timeline);
 
   return {
@@ -68,6 +89,7 @@ export function parseEncounterDocument(value: unknown): EncounterDocument {
     name: value.name,
     players,
     schemaVersion: 1,
+    targetMarkers,
     timeline,
   };
 }
@@ -117,22 +139,14 @@ function parseMarkers(value: unknown): EncounterMarkerDocument[] {
       throw new Error('Encounter marker position is invalid');
     }
 
-    const asset = marker.asset;
-    if (
-      !isRecord(asset) ||
-      typeof asset.alt !== 'string' ||
-      typeof asset.label !== 'string' ||
-      typeof asset.src !== 'string'
-    ) {
+    const asset = parseMarkerAsset(marker.asset);
+
+    if (!asset) {
       throw new Error('Encounter marker asset is invalid');
     }
 
     return {
-      asset: {
-        alt: asset.alt,
-        label: asset.label,
-        src: asset.src,
-      },
+      asset,
       id: marker.id,
       position: {
         x: marker.position.x,
@@ -140,6 +154,83 @@ function parseMarkers(value: unknown): EncounterMarkerDocument[] {
       },
     };
   });
+}
+
+function parseTargetMarkers(value: unknown): EncounterTargetMarkerDocument[] {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error('Encounter targetMarkers must be an array');
+  }
+
+  return value.map((marker) => {
+    if (!isRecord(marker)) {
+      throw new Error('Encounter target marker must be an object');
+    }
+
+    if (typeof marker.id !== 'string' || marker.id.length === 0) {
+      throw new Error('Encounter target marker id is required');
+    }
+
+    const asset = parseMarkerAsset(marker.asset);
+
+    if (!asset) {
+      throw new Error('Encounter target marker asset is invalid');
+    }
+
+    const target = parseTargetMarkerTarget(marker.target);
+
+    return {
+      asset,
+      id: marker.id,
+      target,
+    };
+  });
+}
+
+function parseMarkerAsset(value: unknown): EncounterMarkerDocument['asset'] | undefined {
+  if (
+    !isRecord(value) ||
+    typeof value.alt !== 'string' ||
+    typeof value.label !== 'string' ||
+    typeof value.src !== 'string'
+  ) {
+    return undefined;
+  }
+
+  return {
+    alt: value.alt,
+    category: value.category === 'combat' ? 'combat' : 'waymark',
+    label: value.label,
+    src: value.src,
+  };
+}
+
+function parseTargetMarkerTarget(
+  value: unknown,
+): EncounterTargetMarkerDocument['target'] {
+  if (!isRecord(value)) {
+    throw new Error('Encounter target marker target is invalid');
+  }
+
+  if (value.type === 'enemy') {
+    return { type: 'enemy' };
+  }
+
+  if (
+    value.type === 'player' &&
+    typeof value.role === 'string' &&
+    ROLES.includes(value.role as Role)
+  ) {
+    return {
+      role: value.role as Role,
+      type: 'player',
+    };
+  }
+
+  throw new Error('Encounter target marker target is invalid');
 }
 
 function parseTimeline(value: unknown): EncounterDocument['timeline'] {

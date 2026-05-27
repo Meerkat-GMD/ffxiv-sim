@@ -234,6 +234,12 @@ h3 {
   inset: 5px;
 }
 
+.target-marker-layer {
+  pointer-events: none;
+  position: absolute;
+  inset: 5px;
+}
+
 .placed-marker {
   position: absolute;
   width: 36px;
@@ -246,6 +252,14 @@ h3 {
 
 .placed-marker:active {
   cursor: grabbing;
+}
+
+.target-marker {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  filter: drop-shadow(0 0 5px #020617);
+  transform: translate(-50%, -120%);
 }
 
 .timeline-list {

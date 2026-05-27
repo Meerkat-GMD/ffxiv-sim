@@ -115,6 +115,7 @@ describe('App', () => {
       disconnect: vi.fn(),
       moveRole: vi.fn(),
       setMarkers: vi.fn(),
+      setTargetMarkers: vi.fn(),
     };
     const realtimeConnector = vi.fn((options: RealtimeClientOptions) => {
       realtimeOptions = options;
@@ -142,6 +143,7 @@ describe('App', () => {
         markers: [],
         players: createInitialPlayers(),
         roomId: 'alpha',
+        targetMarkers: [],
         timeline: createSampleTimeline(),
       });
     });
@@ -347,6 +349,52 @@ describe('App', () => {
     );
   });
 
+  it('places combat markers on targets instead of the arena floor', () => {
+    renderApp();
+
+    const markerButton = container?.querySelector<HTMLButtonElement>(
+      'button[data-marker-src="/assets/xivplan/marker/attack1.png"]',
+    );
+    const canvas = container?.querySelector<HTMLCanvasElement>('canvas');
+
+    expect(markerButton).not.toBeNull();
+    expect(canvas).not.toBeNull();
+
+    vi.spyOn(canvas!, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 720,
+      height: 720,
+      top: 0,
+      right: 720,
+      bottom: 720,
+      left: 0,
+      toJSON: () => undefined,
+    });
+
+    act(() => {
+      markerButton?.click();
+    });
+
+    act(() => {
+      canvas?.dispatchEvent(
+        new MouseEvent('click', {
+          bubbles: true,
+          clientX: 360,
+          clientY: 173,
+        }),
+      );
+    });
+
+    expect(
+      container?.querySelector<HTMLImageElement>('img[alt="Placed Attack marker 1"]'),
+    ).toBeNull();
+    expect(
+      container?.querySelector<HTMLImageElement>('img[alt="Target Attack marker 1"]'),
+    ).not.toBeNull();
+    expect(markerButton?.getAttribute('aria-pressed')).toBe('false');
+  });
+
   it('clears marker placement mode after placing one marker', () => {
     renderApp();
 
@@ -469,6 +517,7 @@ describe('App', () => {
       disconnect: vi.fn(),
       moveRole: vi.fn(),
       setMarkers: vi.fn(),
+      setTargetMarkers: vi.fn(),
     };
     const realtimeConnector = vi.fn((options: RealtimeClientOptions) => {
       realtimeOptions = options;
@@ -489,6 +538,7 @@ describe('App', () => {
         markers: [],
         players: createInitialPlayers(),
         roomId: 'alpha',
+        targetMarkers: [],
         timeline: createSampleTimeline(),
       });
     });
@@ -539,6 +589,7 @@ describe('App', () => {
         markers: [],
         players: createInitialPlayers(),
         roomId: 'alpha',
+        targetMarkers: [],
         timeline: createSampleTimeline(),
       });
     });

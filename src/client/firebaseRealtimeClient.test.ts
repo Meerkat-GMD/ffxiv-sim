@@ -26,6 +26,7 @@ describe('firebase realtime client adapter', () => {
       markers: [],
       players: createInitialPlayers(),
       roomId: 'alpha',
+      targetMarkers: [],
       timeline: createSampleTimeline(),
     });
 
@@ -54,11 +55,24 @@ describe('firebase realtime client adapter', () => {
       {
         asset: {
           alt: 'Waymark A',
+          category: 'waymark',
           label: 'A',
           src: '/assets/xivplan/marker/waymark_a.png',
         },
         id: '/assets/xivplan/marker/waymark_a.png',
         position: { x: 0, y: 0 },
+      },
+    ]);
+    client.setTargetMarkers([
+      {
+        asset: {
+          alt: 'Attack marker 1',
+          category: 'combat',
+          label: 'Atk',
+          src: '/assets/xivplan/marker/attack1.png',
+        },
+        id: '/assets/xivplan/marker/attack1.png',
+        target: { role: 'MT', type: 'player' },
       },
     ]);
     client.disconnect();
@@ -73,6 +87,11 @@ describe('firebase realtime client adapter', () => {
     expect(api.setMarkers).toHaveBeenCalledWith('alpha', [
       expect.objectContaining({
         id: '/assets/xivplan/marker/waymark_a.png',
+      }),
+    ]);
+    expect(api.setTargetMarkers).toHaveBeenCalledWith('alpha', [
+      expect.objectContaining({
+        id: '/assets/xivplan/marker/attack1.png',
       }),
     ]);
     expect(api.releaseClient).toHaveBeenCalledWith('alpha', expect.any(String));
@@ -94,6 +113,7 @@ function createFirebaseApi() {
     moveRole: vi.fn(),
     releaseClient: vi.fn(),
     setMarkers: vi.fn(),
+    setTargetMarkers: vi.fn(),
     subscribeRoom: vi.fn((_roomId, handler) => {
       roomHandler = handler;
       return api.unsubscribe;

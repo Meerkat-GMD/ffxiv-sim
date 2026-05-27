@@ -20,7 +20,12 @@ import {
   type TimelineEvent,
 } from './sim/timeline';
 import { type EncounterDocument } from './shared/encounter';
-import { ArenaCanvas, type PlacedMarker } from './ui/ArenaCanvas';
+import {
+  ArenaCanvas,
+  type PlacedMarker,
+  type TargetMarker,
+  type TargetMarkerTarget,
+} from './ui/ArenaCanvas';
 import { EncounterControls } from './ui/EncounterControls';
 import { MarkerTray, type MarkerAsset } from './ui/MarkerTray';
 import { RolePanel } from './ui/RolePanel';
@@ -51,6 +56,11 @@ type LocalMarkersSnapshot = {
   updatedAt: number;
 };
 
+type LocalTargetMarkersSnapshot = {
+  targetMarkers: TargetMarker[];
+  updatedAt: number;
+};
+
 function App({
   realtimeConnector = defaultRealtimeConnector,
   realtimeUrl,
@@ -65,6 +75,7 @@ function App({
   const [isTimelinePlaying, setIsTimelinePlaying] = useState(false);
   const [selectedMarker, setSelectedMarker] = useState<MarkerAsset | undefined>();
   const [placedMarkers, setPlacedMarkers] = useState<PlacedMarker[]>([]);
+  const [targetMarkers, setTargetMarkers] = useState<TargetMarker[]>([]);
   const [otherClaimedRoles, setOtherClaimedRoles] = useState<ReadonlySet<Role>>(
     () => new Set<Role>(),
   );
@@ -77,9 +88,13 @@ function App({
   const timelineTimeRef = useRef(timelineTime);
   const playersRef = useRef(players);
   const placedMarkersRef = useRef(placedMarkers);
+  const targetMarkersRef = useRef(targetMarkers);
   const controlledRoleRef = useRef(controlledRole);
   const localMoveRef = useRef<LocalMoveSnapshot | undefined>(undefined);
   const localMarkersRef = useRef<LocalMarkersSnapshot | undefined>(undefined);
+  const localTargetMarkersRef = useRef<LocalTargetMarkersSnapshot | undefined>(
+    undefined,
+  );
   const lastRemoteMoveSentAtRef = useRef(0);
   const claimedRoles = new Set<Role>(otherClaimedRoles);
 
@@ -94,6 +109,10 @@ function App({
   useEffect(() => {
     placedMarkersRef.current = placedMarkers;
   }, [placedMarkers]);
+
+  useEffect(() => {
+    targetMarkersRef.current = targetMarkers;
+  }, [targetMarkers]);
 
   useEffect(() => {
     controlledRoleRef.current = controlledRole;
@@ -132,6 +151,17 @@ function App({
           placedMarkersRef.current = nextMarkers;
 
           return nextMarkers;
+        });
+        setTargetMarkers(() => {
+          const nextTargetMarkers = mergeRealtimeTargetMarkers(
+            snapshot.targetMarkers,
+            localTargetMarkersRef.current,
+            Date.now(),
+          );
+
+          targetMarkersRef.current = nextTargetMarkers;
+
+          return nextTargetMarkers;
         });
         setTimeline(snapshot.timeline);
         timelineRef.current = snapshot.timeline;
@@ -225,6 +255,11 @@ function App({
         position: { ...player.position },
       })),
       schemaVersion: 1,
+      targetMarkers: targetMarkers.map((marker) => ({
+        asset: { ...marker.asset },
+        id: marker.id,
+        target: { ...marker.target },
+      })),
       timeline: {
         events: timeline.events,
       },
@@ -240,6 +275,7 @@ function App({
 
     setPlayers(encounter.players);
     setPlacedMarkers(encounter.markers);
+    setTargetMarkers(encounter.targetMarkers);
     setTimeline(nextTimeline);
     setTimelineTime(0);
     setIsTimelinePlaying(false);
@@ -311,6 +347,17 @@ function App({
     );
   }
 
+  function handlePlaceTargetMarker(target: TargetMarkerTarget) {
+    if (!selectedMarker || selectedMarker.category !== 'combat') {
+      return;
+    }
+
+    commitTargetMarkers(
+      upsertTargetMarker(targetMarkersRef.current, selectedMarker, target),
+    );
+    setSelectedMarker(undefined);
+  }
+
   function commitPlacedMarkers(markers: PlacedMarker[]) {
     const nextMarkers = clonePlacedMarkers(markers);
 
@@ -321,6 +368,18 @@ function App({
     };
     setPlacedMarkers(nextMarkers);
     realtimeClientRef.current?.setMarkers(nextMarkers);
+  }
+
+  function commitTargetMarkers(markers: TargetMarker[]) {
+    const nextMarkers = cloneTargetMarkers(markers);
+
+    targetMarkersRef.current = nextMarkers;
+    localTargetMarkersRef.current = {
+      targetMarkers: nextMarkers,
+      updatedAt: Date.now(),
+    };
+    setTargetMarkers(nextMarkers);
+    realtimeClientRef.current?.setTargetMarkers(nextMarkers);
   }
 
   function handleMoveControlledRole(role: Role, position: { x: number; y: number }) {
@@ -388,11 +447,13 @@ function App({
             onMoveControlledRole={roomId ? handleMoveControlledRole : undefined}
             onMoveMarker={handleMoveMarker}
             onPlaceMarker={handlePlaceMarker}
+            onPlaceTargetMarker={handlePlaceTargetMarker}
             placedMarkers={placedMarkers}
             players={players}
             resolvedEffects={timeline.resolvedEffects}
             selectedMarker={selectedMarker}
             setPlayers={setPlayers}
+            targetMarkers={targetMarkers}
             timelineTime={timelineTime}
           />
 
@@ -504,6 +565,21 @@ export function mergeRealtimeMarkers(
   return clonePlacedMarkers(snapshotMarkers);
 }
 
+export function mergeRealtimeTargetMarkers(
+  snapshotTargetMarkers: TargetMarker[],
+  localTargetMarkers: LocalTargetMarkersSnapshot | undefined,
+  now: number,
+): TargetMarker[] {
+  if (
+    localTargetMarkers &&
+    now - localTargetMarkers.updatedAt <= LOCAL_MARKER_SNAPSHOT_GRACE_MS
+  ) {
+    return cloneTargetMarkers(localTargetMarkers.targetMarkers);
+  }
+
+  return cloneTargetMarkers(snapshotTargetMarkers);
+}
+
 function upsertPlacedMarker(
   currentMarkers: PlacedMarker[],
   selectedMarker: MarkerAsset,
@@ -534,6 +610,39 @@ function clonePlacedMarkers(markers: PlacedMarker[]): PlacedMarker[] {
     asset: { ...marker.asset },
     id: marker.id,
     position: { ...marker.position },
+  }));
+}
+
+function upsertTargetMarker(
+  currentMarkers: TargetMarker[],
+  selectedMarker: MarkerAsset,
+  target: TargetMarkerTarget,
+): TargetMarker[] {
+  const existingMarker = currentMarkers.find(
+    (marker) => marker.asset.src === selectedMarker.src,
+  );
+
+  if (existingMarker) {
+    return currentMarkers.map((marker) =>
+      marker.id === existingMarker.id ? { ...marker, target } : marker,
+    );
+  }
+
+  return [
+    ...currentMarkers,
+    {
+      asset: selectedMarker,
+      id: selectedMarker.src,
+      target,
+    },
+  ];
+}
+
+function cloneTargetMarkers(markers: TargetMarker[]): TargetMarker[] {
+  return markers.map((marker) => ({
+    asset: { ...marker.asset },
+    id: marker.id,
+    target: { ...marker.target },
   }));
 }
 

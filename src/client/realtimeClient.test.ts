@@ -32,11 +32,24 @@ describe('realtime client adapter', () => {
       {
         asset: {
           alt: 'Waymark A',
+          category: 'waymark',
           label: 'A',
           src: '/assets/xivplan/marker/waymark_a.png',
         },
         id: '/assets/xivplan/marker/waymark_a.png',
         position: { x: 0, y: 0 },
+      },
+    ]);
+    client.setTargetMarkers([
+      {
+        asset: {
+          alt: 'Attack marker 1',
+          category: 'combat',
+          label: 'Atk',
+          src: '/assets/xivplan/marker/attack1.png',
+        },
+        id: '/assets/xivplan/marker/attack1.png',
+        target: { role: 'MT', type: 'player' },
       },
     ]);
 
@@ -56,6 +69,14 @@ describe('realtime client adapter', () => {
         }),
       ],
       roomId: 'alpha',
+    });
+    expect(socket.emit).toHaveBeenCalledWith('targetMarkers:set', {
+      roomId: 'alpha',
+      targetMarkers: [
+        expect.objectContaining({
+          id: '/assets/xivplan/marker/attack1.png',
+        }),
+      ],
     });
   });
 });

@@ -73,9 +73,33 @@ describe('MarkerTray', () => {
 
     expect(onSelectMarker).toHaveBeenCalledWith({
       alt: 'Waymark A',
+      category: 'waymark',
       label: 'A',
       src: '/assets/xivplan/marker/waymark_a.png',
     });
+  });
+
+  it('marks combat assets as target markers', () => {
+    const onSelectMarker = vi.fn();
+
+    renderMarkerTray({ onSelectMarker });
+
+    const attackButton = container?.querySelector<HTMLButtonElement>(
+      'button[data-marker-src="/assets/xivplan/marker/attack1.png"]',
+    );
+
+    expect(attackButton).not.toBeNull();
+
+    act(() => {
+      attackButton?.click();
+    });
+
+    expect(onSelectMarker).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'combat',
+        src: '/assets/xivplan/marker/attack1.png',
+      }),
+    );
   });
 
   function imageByAlt(alt: string) {

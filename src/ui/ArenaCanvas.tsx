@@ -20,6 +20,8 @@ const CANVAS_SIZE = 720;
 const ARENA_RADIUS = 180;
 const TOKEN_RADIUS = 12;
 const MARKER_RADIUS = 8;
+const ENEMY_TARGET_RADIUS = 18;
+const PLAYER_TARGET_RADIUS = 22;
 const MOVE_UNITS_PER_SECOND = 260;
 const MAX_FRAME_SECONDS = 0.05;
 
@@ -50,10 +52,12 @@ type ArenaCanvasProps = {
   onMoveControlledRole?: (role: Role, position: Point) => void;
   onMoveMarker?: (markerId: string, position: Point) => void;
   onPlaceMarker?: (position: Point) => void;
+  onPlaceTargetMarker?: (target: TargetMarkerTarget) => void;
   placedMarkers?: PlacedMarker[];
   resolvedEffects?: ResolvedEffect[];
   selectedMarker?: MarkerAsset;
   setPlayers: Dispatch<SetStateAction<Player[]>>;
+  targetMarkers?: TargetMarker[];
   timelineTime?: number;
 };
 
@@ -61,6 +65,16 @@ export type PlacedMarker = {
   asset: MarkerAsset;
   id: string;
   position: Point;
+};
+
+export type TargetMarkerTarget =
+  | { type: 'enemy' }
+  | { role: Role; type: 'player' };
+
+export type TargetMarker = {
+  asset: MarkerAsset;
+  id: string;
+  target: TargetMarkerTarget;
 };
 
 type CanvasRect = Pick<DOMRect, 'height' | 'left' | 'top' | 'width'>;
@@ -159,10 +173,12 @@ export function ArenaCanvas({
   onMoveControlledRole,
   onMoveMarker,
   onPlaceMarker,
+  onPlaceTargetMarker,
   placedMarkers = [],
   resolvedEffects = [],
   selectedMarker,
   setPlayers,
+  targetMarkers = [],
   timelineTime = 0,
 }: ArenaCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -365,16 +381,26 @@ export function ArenaCanvas({
   }
 
   function handleClick(event: MouseEvent<HTMLCanvasElement>) {
-    if (!selectedMarker || !onPlaceMarker) {
+    if (!selectedMarker) {
       return;
     }
 
-    onPlaceMarker(
-      canvasClientPointToArenaPoint(
-        { clientX: event.clientX, clientY: event.clientY },
-        event.currentTarget.getBoundingClientRect(),
-      ),
+    const arenaPoint = canvasClientPointToArenaPoint(
+      { clientX: event.clientX, clientY: event.clientY },
+      event.currentTarget.getBoundingClientRect(),
     );
+
+    if (selectedMarker.category === 'combat') {
+      const target = targetMarkerTargetAtArenaPoint(arenaPoint, players);
+
+      if (target) {
+        onPlaceTargetMarker?.(target);
+      }
+
+      return;
+    }
+
+    onPlaceMarker?.(arenaPoint);
   }
 
   return (
@@ -416,9 +442,78 @@ export function ArenaCanvas({
             );
           })}
         </div>
+        <div className="target-marker-layer" aria-label="Target markers">
+          {targetMarkers.map((marker) => {
+            const targetPosition = targetMarkerArenaPosition(marker, players);
+
+            if (!targetPosition) {
+              return null;
+            }
+
+            const position = arenaPointToCanvasPercent(targetPosition);
+
+            return (
+              <img
+                alt={`Target ${marker.asset.alt}`}
+                className="target-marker"
+                height="32"
+                key={marker.id}
+                src={marker.asset.src}
+                style={{
+                  left: `${position.left}%`,
+                  top: `${position.top}%`,
+                }}
+                width="32"
+              />
+            );
+          })}
+        </div>
       </div>
     </section>
   );
+}
+
+export function targetMarkerTargetAtArenaPoint(
+  point: Point,
+  players: Player[],
+): TargetMarkerTarget | undefined {
+  const playerTarget = players
+    .map((player) => ({
+      distance: distanceBetween(point, player.position),
+      player,
+    }))
+    .filter(({ distance }) => distance <= PLAYER_TARGET_RADIUS)
+    .sort((first, second) => first.distance - second.distance)[0];
+
+  if (playerTarget) {
+    return {
+      role: playerTarget.player.role,
+      type: 'player',
+    };
+  }
+
+  if (distanceBetween(point, { x: 0, y: 0 }) <= ENEMY_TARGET_RADIUS) {
+    return { type: 'enemy' };
+  }
+
+  return undefined;
+}
+
+function targetMarkerArenaPosition(
+  marker: TargetMarker,
+  players: Player[],
+): Point | undefined {
+  if (marker.target.type === 'enemy') {
+    return { x: 0, y: 0 };
+  }
+
+  const playerTarget = marker.target;
+
+  return players.find((player) => player.role === playerTarget.role)?.position;
+}
+
+function distanceBetween(first: Point, second: Point): number {
+  return Math.hypot(first.x - second.x, first.y - second.y);
 }
 
 export function drawArena(

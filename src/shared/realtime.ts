@@ -3,6 +3,7 @@ import { type Player } from '../sim/players';
 import { type Role } from '../sim/roles';
 import {
   type EncounterMarkerDocument,
+  type EncounterTargetMarkerDocument,
 } from './encounter';
 import { type TimelineState } from '../sim/timeline';
 
@@ -26,12 +27,18 @@ export type MarkersSetPayload = {
   roomId: string;
 };
 
+export type TargetMarkersSetPayload = {
+  roomId: string;
+  targetMarkers: EncounterTargetMarkerDocument[];
+};
+
 export type RoomSnapshot = {
   claimedRoles: Partial<Record<Role, string>>;
   encounterId?: string;
   markers: EncounterMarkerDocument[];
   players: Player[];
   roomId: string;
+  targetMarkers: EncounterTargetMarkerDocument[];
   timeline: TimelineState;
 };
 
@@ -44,4 +51,5 @@ export type ClientToServerEvents = {
   'player:move': (payload: PlayerMovePayload) => void;
   'role:claim': (payload: RoleClaimPayload) => void;
   'room:join': (payload: RoomJoinPayload) => void;
+  'targetMarkers:set': (payload: TargetMarkersSetPayload) => void;
 };

@@ -14,7 +14,11 @@ import { clampPointToCircle, type Point } from '../sim/geometry';
 import { createInitialPlayers } from '../sim/players';
 import { type Role } from '../sim/roles';
 import { type TimelineState } from '../sim/timeline';
-import { createDefaultEncounter, type EncounterMarkerDocument } from '../shared/encounter';
+import {
+  createDefaultEncounter,
+  type EncounterMarkerDocument,
+  type EncounterTargetMarkerDocument,
+} from '../shared/encounter';
 import { type RoomSnapshot } from '../shared/realtime';
 import { getFirebaseDatabase } from './firebaseConfig';
 import {
@@ -31,6 +35,9 @@ export type FirebaseRoomValue = {
   markers?: EncounterMarkerDocument[] | Record<string, EncounterMarkerDocument>;
   players?: ReturnType<typeof createInitialPlayers> | Record<string, ReturnType<typeof createInitialPlayers>[number]>;
   roomId?: string;
+  targetMarkers?:
+    | EncounterTargetMarkerDocument[]
+    | Record<string, EncounterTargetMarkerDocument>;
   timeline?: TimelineState;
 };
 
@@ -40,6 +47,10 @@ export type FirebaseRealtimeApi = {
   moveRole: (roomId: string, role: Role, position: Point, clientId: string) => void;
   releaseClient: (roomId: string, clientId: string) => void;
   setMarkers: (roomId: string, markers: EncounterMarkerDocument[]) => void;
+  setTargetMarkers: (
+    roomId: string,
+    targetMarkers: EncounterTargetMarkerDocument[],
+  ) => void;
   subscribeRoom: (
     roomId: string,
     onRoom: (room: FirebaseRoomValue | undefined) => void,
@@ -88,6 +99,9 @@ export function connectFirebaseRealtime({
     },
     setMarkers(markers) {
       api.setMarkers(roomId, markers);
+    },
+    setTargetMarkers(targetMarkers) {
+      api.setTargetMarkers(roomId, targetMarkers);
     },
   };
 }
@@ -143,6 +157,7 @@ function createDatabaseFirebaseRealtimeApi(database: Database): FirebaseRealtime
           connected: false,
         }))),
         roomId,
+        targetMarkers: encounter.targetMarkers,
         timeline: {
           activeTelegraphs: [],
           events: encounter.timeline.events,
@@ -188,6 +203,9 @@ function createDatabaseFirebaseRealtimeApi(database: Database): FirebaseRealtime
     async setMarkers(roomId, markers) {
       await set(ref(database, `rooms/${roomId}/markers`), markers);
     },
+    async setTargetMarkers(roomId, targetMarkers) {
+      await set(ref(database, `rooms/${roomId}/targetMarkers`), targetMarkers);
+    },
     subscribeRoom(roomId, onRoom) {
       return onValue(ref(database, `rooms/${roomId}`), (snapshot) => {
         onRoom(snapshot.val() as FirebaseRoomValue | undefined);
@@ -203,6 +221,7 @@ function createMissingFirebaseApi(): FirebaseRealtimeApi {
     moveRole: noop,
     releaseClient: noop,
     setMarkers: noop,
+    setTargetMarkers: noop,
     subscribeRoom() {
       return noop;
     },
@@ -217,6 +236,7 @@ function toRoomSnapshot(roomId: string, room: FirebaseRoomValue | undefined): Ro
     markers: normalizeList(room?.markers),
     players: normalizePlayers(room?.players),
     roomId: room?.roomId ?? roomId,
+    targetMarkers: normalizeList(room?.targetMarkers),
     timeline: room?.timeline ?? {
       activeTelegraphs: [],
       events: encounter.timeline.events,

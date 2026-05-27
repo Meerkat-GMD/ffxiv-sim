@@ -1,5 +1,6 @@
 export type MarkerAsset = {
   alt: string;
+  category: 'combat' | 'waymark';
   label: string;
   src: string;
 };
@@ -7,25 +8,25 @@ export type MarkerAsset = {
 const MARKER_ASSET_BASE = '/assets/xivplan/marker';
 
 const WAYMARKS: MarkerAsset[] = [
-  marker('Waymark A', 'A', 'waymark_a.png'),
-  marker('Waymark B', 'B', 'waymark_b.png'),
-  marker('Waymark C', 'C', 'waymark_c.png'),
-  marker('Waymark D', 'D', 'waymark_d.png'),
-  marker('Waymark 1', '1', 'waymark_1.png'),
-  marker('Waymark 2', '2', 'waymark_2.png'),
-  marker('Waymark 3', '3', 'waymark_3.png'),
-  marker('Waymark 4', '4', 'waymark_4.png'),
+  marker('Waymark A', 'A', 'waymark_a.png', 'waymark'),
+  marker('Waymark B', 'B', 'waymark_b.png', 'waymark'),
+  marker('Waymark C', 'C', 'waymark_c.png', 'waymark'),
+  marker('Waymark D', 'D', 'waymark_d.png', 'waymark'),
+  marker('Waymark 1', '1', 'waymark_1.png', 'waymark'),
+  marker('Waymark 2', '2', 'waymark_2.png', 'waymark'),
+  marker('Waymark 3', '3', 'waymark_3.png', 'waymark'),
+  marker('Waymark 4', '4', 'waymark_4.png', 'waymark'),
 ];
 
 const COMBAT_MARKERS: MarkerAsset[] = [
-  marker('Attack marker 1', 'Atk', 'attack1.png'),
-  marker('Bind marker 1', 'Bind', 'bind1.png'),
-  marker('Ignore marker 1', 'Ignore', 'ignore1.png'),
-  marker('Red target marker', 'Target', 'target_red.png'),
-  marker('Shape triangle marker', 'Triangle', 'shape_triangle.png'),
-  marker('Shape circle marker', 'Circle', 'shape_circle.png'),
-  marker('Shape square marker', 'Square', 'shape_square.png'),
-  marker('Shape cross marker', 'Cross', 'shape_cross.png'),
+  marker('Attack marker 1', 'Atk', 'attack1.png', 'combat'),
+  marker('Bind marker 1', 'Bind', 'bind1.png', 'combat'),
+  marker('Ignore marker 1', 'Ignore', 'ignore1.png', 'combat'),
+  marker('Red target marker', 'Target', 'target_red.png', 'combat'),
+  marker('Shape triangle marker', 'Triangle', 'shape_triangle.png', 'combat'),
+  marker('Shape circle marker', 'Circle', 'shape_circle.png', 'combat'),
+  marker('Shape square marker', 'Square', 'shape_square.png', 'combat'),
+  marker('Shape cross marker', 'Cross', 'shape_cross.png', 'combat'),
 ];
 
 type MarkerTrayProps = {
@@ -98,9 +99,15 @@ function MarkerGroup({
   );
 }
 
-function marker(alt: string, label: string, filename: string): MarkerAsset {
+function marker(
+  alt: string,
+  label: string,
+  filename: string,
+  category: MarkerAsset['category'],
+): MarkerAsset {
   return {
     alt,
+    category,
     label,
     src: `${MARKER_ASSET_BASE}/${filename}`,
   };

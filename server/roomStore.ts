@@ -5,6 +5,7 @@ import {
   createDefaultEncounter,
   type EncounterDocument,
   type EncounterMarkerDocument,
+  type EncounterTargetMarkerDocument,
 } from '../src/shared/encounter';
 import { type RoomSnapshot } from '../src/shared/realtime';
 import { type TimelineState } from '../src/sim/timeline';
@@ -22,12 +23,15 @@ type MoveRoleResult =
 
 type SetMarkersResult = { ok: true; snapshot: RoomSnapshot };
 
+type SetTargetMarkersResult = { ok: true; snapshot: RoomSnapshot };
+
 type RoomState = {
   claimedRoles: Partial<Record<Role, string>>;
   encounter: EncounterDocument;
   markers: EncounterMarkerDocument[];
   players: Player[];
   roomId: string;
+  targetMarkers: EncounterTargetMarkerDocument[];
   timeline: TimelineState;
 };
 
@@ -53,6 +57,7 @@ export function createRoomStore() {
         connected: false,
       })),
       roomId,
+      targetMarkers: encounter.targetMarkers,
       timeline: {
         activeTelegraphs: [],
         events: encounter.timeline.events,
@@ -126,6 +131,17 @@ export function createRoomStore() {
     return { ok: true, snapshot: snapshot(roomId) };
   }
 
+  function setTargetMarkers(
+    roomId: string,
+    targetMarkers: EncounterTargetMarkerDocument[],
+  ): SetTargetMarkersResult {
+    const room = getOrCreateRoom(roomId);
+
+    room.targetMarkers = structuredClone(targetMarkers);
+
+    return { ok: true, snapshot: snapshot(roomId) };
+  }
+
   function releaseSocket(socketId: string) {
     for (const room of rooms.values()) {
       const releasedRoles = ROLES.filter(
@@ -158,6 +174,7 @@ export function createRoomStore() {
         position: { ...player.position },
       })),
       roomId: room.roomId,
+      targetMarkers: structuredClone(room.targetMarkers),
       timeline: {
         activeTelegraphs: room.timeline.activeTelegraphs.map((telegraph) => ({
           ...telegraph,
@@ -179,6 +196,7 @@ export function createRoomStore() {
     moveRole,
     releaseSocket,
     setMarkers,
+    setTargetMarkers,
     snapshot,
   };
 }
