@@ -451,7 +451,7 @@ describe('App', () => {
     expect(placedMarker?.style.left).toBe('50%');
   });
 
-  it('keeps only one copy of the same placed marker', () => {
+  it('removes an existing waymark when the marker is selected again', () => {
     renderApp();
 
     const markerButton = container?.querySelector<HTMLButtonElement>(
@@ -492,22 +492,63 @@ describe('App', () => {
       markerButton?.click();
     });
 
-    act(() => {
-      canvas?.dispatchEvent(
-        new MouseEvent('click', {
-          bubbles: true,
-          clientX: 540,
-          clientY: 360,
-        }),
-      );
-    });
-
     const placedMarkers = container?.querySelectorAll<HTMLImageElement>(
       'img[alt="Placed Waymark A"]',
     );
 
-    expect(placedMarkers).toHaveLength(1);
-    expect(placedMarkers?.[0]?.style.left).not.toBe('50%');
+    expect(placedMarkers).toHaveLength(0);
+    expect(markerButton?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('removes an existing combat marker when the marker is selected again', () => {
+    renderApp();
+
+    const markerButton = container?.querySelector<HTMLButtonElement>(
+      'button[data-marker-src="/assets/xivplan/marker/attack1.png"]',
+    );
+    const canvas = container?.querySelector<HTMLCanvasElement>('canvas');
+
+    expect(markerButton).not.toBeNull();
+    expect(canvas).not.toBeNull();
+
+    vi.spyOn(canvas!, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 720,
+      height: 720,
+      top: 0,
+      right: 720,
+      bottom: 720,
+      left: 0,
+      toJSON: () => undefined,
+    });
+
+    act(() => {
+      markerButton?.click();
+    });
+
+    act(() => {
+      canvas?.dispatchEvent(
+        new MouseEvent('click', {
+          bubbles: true,
+          clientX: 360,
+          clientY: 173,
+        }),
+      );
+    });
+
+    expect(
+      container?.querySelector<HTMLImageElement>('img[alt="Target Attack marker 1"]'),
+    ).not.toBeNull();
+
+    act(() => {
+      markerButton?.click();
+    });
+
+    expect(
+      container?.querySelector<HTMLImageElement>('img[alt="Target Attack marker 1"]'),
+    ).toBeNull();
+    expect(markerButton?.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('keeps locally placed room markers through stale realtime movement snapshots', () => {

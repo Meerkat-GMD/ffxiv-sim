@@ -231,6 +231,42 @@ function App({
     setControlledRole(role);
   }
 
+  function handleSelectMarker(marker: MarkerAsset) {
+    if (marker.category === 'combat') {
+      const hasTargetMarker = targetMarkersRef.current.some(
+        (targetMarker) => targetMarker.asset.src === marker.src,
+      );
+
+      if (hasTargetMarker) {
+        commitTargetMarkers(
+          targetMarkersRef.current.filter(
+            (targetMarker) => targetMarker.asset.src !== marker.src,
+          ),
+        );
+        setSelectedMarker(undefined);
+        return;
+      }
+    } else {
+      const hasPlacedMarker = placedMarkersRef.current.some(
+        (placedMarker) => placedMarker.asset.src === marker.src,
+      );
+
+      if (hasPlacedMarker) {
+        commitPlacedMarkers(
+          placedMarkersRef.current.filter(
+            (placedMarker) => placedMarker.asset.src !== marker.src,
+          ),
+        );
+        setSelectedMarker(undefined);
+        return;
+      }
+    }
+
+    setSelectedMarker((currentMarker) =>
+      currentMarker?.src === marker.src ? undefined : marker,
+    );
+  }
+
   function handleResetTimeline() {
     const nextTimeline = createSampleTimeline();
 
@@ -475,7 +511,7 @@ function App({
               resolvedEffects={timeline.resolvedEffects}
             />
             <MarkerTray
-              onSelectMarker={setSelectedMarker}
+              onSelectMarker={handleSelectMarker}
               selectedMarker={selectedMarker}
             />
           </div>

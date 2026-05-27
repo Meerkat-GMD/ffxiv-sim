@@ -429,8 +429,10 @@ export function ArenaCanvas({
               <img
                 alt={`Placed ${marker.asset.alt}`}
                 className="placed-marker"
+                draggable={false}
                 height="36"
                 key={marker.id}
+                onDragStart={(event) => event.preventDefault()}
                 onMouseDown={(event) => handleMarkerMouseDown(marker.id, event)}
                 src={marker.asset.src}
                 style={{

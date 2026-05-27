@@ -492,6 +492,25 @@ describe('ArenaCanvas keyboard scope', () => {
     });
   });
 
+  it('disables native image dragging for placed floor markers', () => {
+    renderArenaCanvas(undefined, {
+      placedMarkers: [
+        {
+          asset: WAYMARK_A,
+          id: 'marker-waymark-a',
+          position: { x: 0, y: 0 },
+        },
+      ],
+    });
+
+    const placedMarker = container?.querySelector<HTMLImageElement>(
+      'img[alt="Placed Waymark A"]',
+    );
+
+    expect(placedMarker).not.toBeNull();
+    expect(placedMarker?.draggable).toBe(false);
+  });
+
   it('renders target markers attached to moving players', () => {
     const players = createInitialPlayers().map((player) =>
       player.role === 'MT'
