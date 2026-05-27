@@ -95,7 +95,10 @@ describe('createSampleTimeline', () => {
         },
       },
     ]);
-    expect(timeline.events[0].time + timeline.events[0].telegraphDuration).toBe(10);
+    expect(timeline.events[0]).toMatchObject({
+      telegraphDuration: 5,
+      time: 5,
+    });
     expect(timeline.activeTelegraphs).toEqual([]);
     expect(timeline.resolvedEffects).toEqual([]);
   });

@@ -41,7 +41,7 @@ describe('TimelineEditor', () => {
     ]);
   });
 
-  it('adds donut, line, cone, and stack mechanics', () => {
+  it('adds donut, line, cone, stack, and sleep mechanics', () => {
     const onChange = vi.fn();
     render(<TimelineEditor events={[]} onChange={onChange} />);
 
@@ -83,6 +83,18 @@ describe('TimelineEditor', () => {
         stack: { radius: 48 },
         target: { roleGroup: 'healer', selection: 'random' },
         type: 'spawn_stack',
+      }),
+    ]);
+
+    act(() => {
+      button('Add sleep debuff')?.click();
+    });
+    expect(onChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({
+        duration: 5,
+        status: 'sleep',
+        target: { roleGroup: 'dps', selection: 'random' },
+        type: 'apply_status',
       }),
     ]);
   });

@@ -122,6 +122,8 @@ function formatTimelineEvent(event: TimelineEvent): string {
       return `${formatTimelineListTime(event.time)} ${target} cone telegraph`;
     case 'spawn_stack':
       return `${formatTimelineListTime(event.time)} ${target} stack marker`;
+    case 'apply_status':
+      return `${formatTimelineListTime(event.time)} ${target} sleep debuff`;
   }
 }
 

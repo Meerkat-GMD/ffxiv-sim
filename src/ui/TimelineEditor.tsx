@@ -94,6 +94,17 @@ export function TimelineEditor({ events, onChange }: TimelineEditorProps) {
     });
   }
 
+  function addSleepDebuff() {
+    addEvent({
+      duration: 5,
+      id: nextEventId(events),
+      status: 'sleep',
+      target: roleGroupTarget('dps'),
+      time: 5,
+      type: 'apply_status',
+    });
+  }
+
   function updateEvent(eventId: string, nextEvent: TimelineEvent) {
     onChange(events.map((event) => (event.id === eventId ? nextEvent : event)));
   }
@@ -144,6 +155,14 @@ export function TimelineEditor({ events, onChange }: TimelineEditorProps) {
           type="button"
         >
           Stack
+        </button>
+        <button
+          aria-label="Add sleep debuff"
+          className="timeline-button"
+          onClick={addSleepDebuff}
+          type="button"
+        >
+          Sleep
         </button>
       </div>
 
@@ -312,6 +331,8 @@ function PreviewMechanic({ event }: PreviewMechanicProps) {
           r={arenaLengthToPreview(event.stack.radius)}
         />
       );
+    case 'apply_status':
+      return null;
   }
 }
 
@@ -343,11 +364,13 @@ function EventRow({ event, onDelete, onUpdate }: EventRowProps) {
         />
       </LabeledField>
       <TargetFields
+        allowFixedPosition={event.type !== 'apply_status'}
         eventId={event.id}
         onChange={(target) => onUpdate({ ...event, target })}
         target={event.target}
       />
       {mechanicFields(event, onUpdate)}
+      {event.type === 'apply_status' ? null : (
       <LabeledField label="예고 시간">
         <input
           aria-label={`Telegraph duration ${event.id}`}
@@ -363,6 +386,7 @@ function EventRow({ event, onDelete, onUpdate }: EventRowProps) {
           value={event.telegraphDuration}
         />
       </LabeledField>
+      )}
       <LabeledField label="Action">
         <button
           aria-label={`Delete ${event.id} event`}
@@ -378,12 +402,18 @@ function EventRow({ event, onDelete, onUpdate }: EventRowProps) {
 }
 
 type TargetFieldsProps = {
+  allowFixedPosition?: boolean;
   eventId: string;
   onChange: (target: TargetSpec) => void;
   target: TargetSpec;
 };
 
-function TargetFields({ eventId, onChange, target }: TargetFieldsProps) {
+function TargetFields({
+  allowFixedPosition = true,
+  eventId,
+  onChange,
+  target,
+}: TargetFieldsProps) {
   const mode = target.selection === 'fixed_position' ? 'fixed_position' : 'random';
 
   return (
@@ -405,7 +435,9 @@ function TargetFields({ eventId, onChange, target }: TargetFieldsProps) {
           value={mode}
         >
           <option value="random">Role random</option>
-          <option value="fixed_position">Fixed position</option>
+          {allowFixedPosition ? (
+            <option value="fixed_position">Fixed position</option>
+          ) : null}
         </select>
       </LabeledField>
 
@@ -561,6 +593,16 @@ function mechanicFields(
           value={event.stack.radius}
         />
       );
+    case 'apply_status':
+      return (
+        <NumberField
+          inputLabel={`Sleep duration ${event.id}`}
+          label="Duration"
+          onChange={(duration) => onUpdate({ ...event, duration })}
+          step="0.5"
+          value={event.duration}
+        />
+      );
   }
 }
 
@@ -619,6 +661,8 @@ function eventLabel(event: TimelineEvent): string {
       return 'Cone';
     case 'spawn_stack':
       return 'Stack';
+    case 'apply_status':
+      return 'Sleep';
   }
 }
 

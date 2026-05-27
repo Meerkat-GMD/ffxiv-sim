@@ -53,6 +53,7 @@ type ArenaCanvasProps = {
   onMoveMarker?: (markerId: string, position: Point) => void;
   onPlaceMarker?: (position: Point) => void;
   onPlaceTargetMarker?: (target: TargetMarkerTarget) => void;
+  movementLockedRoles?: ReadonlySet<Role>;
   placedMarkers?: PlacedMarker[];
   resolvedEffects?: ResolvedEffect[];
   selectedMarker?: MarkerAsset;
@@ -174,6 +175,7 @@ export function ArenaCanvas({
   onMoveMarker,
   onPlaceMarker,
   onPlaceTargetMarker,
+  movementLockedRoles = new Set<Role>(),
   placedMarkers = [],
   resolvedEffects = [],
   selectedMarker,
@@ -186,11 +188,16 @@ export function ArenaCanvas({
   const draggingMarkerIdRef = useRef<string | undefined>(undefined);
   const lastFrameRef = useRef<number | undefined>(undefined);
   const controlledRoleRef = useRef(controlledRole);
+  const movementLockedRolesRef = useRef(movementLockedRoles);
   const onMoveControlledRoleRef = useRef(onMoveControlledRole);
 
   useEffect(() => {
     controlledRoleRef.current = controlledRole;
   }, [controlledRole]);
+
+  useEffect(() => {
+    movementLockedRolesRef.current = movementLockedRoles;
+  }, [movementLockedRoles]);
 
   useEffect(() => {
     onMoveControlledRoleRef.current = onMoveControlledRole;
@@ -287,10 +294,18 @@ export function ArenaCanvas({
       lastFrameRef.current = timestamp;
 
       const direction = movementVectorFromKeys(pressedKeysRef.current);
+      const currentControlledRole = controlledRoleRef.current;
+
+      if (
+        currentControlledRole &&
+        movementLockedRolesRef.current.has(currentControlledRole)
+      ) {
+        frameId = window.requestAnimationFrame(step);
+        return;
+      }
 
       if (direction.x !== 0 || direction.y !== 0) {
         setPlayers((currentPlayers) => {
-          const currentControlledRole = controlledRoleRef.current;
           const nextPlayers = moveControlledPlayer(
             currentPlayers,
             currentControlledRole,

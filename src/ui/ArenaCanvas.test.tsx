@@ -248,6 +248,32 @@ describe('ArenaCanvas keyboard scope', () => {
     });
   });
 
+  it('blocks controlled role movement while that role is movement locked', () => {
+    const onMoveControlledRole = vi.fn();
+    const setPlayers = vi.fn();
+    const canvas = renderArenaCanvas(setPlayers, {
+      movementLockedRoles: new Set(['MT']),
+      onMoveControlledRole,
+    });
+
+    expect(canvas).not.toBeNull();
+
+    act(() => {
+      canvas?.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          cancelable: true,
+          code: 'KeyD',
+        }),
+      );
+      animationFrameCallbacks[0]?.(16);
+      animationFrameCallbacks[1]?.(66);
+    });
+
+    expect(setPlayers).not.toHaveBeenCalled();
+    expect(onMoveControlledRole).not.toHaveBeenCalled();
+  });
+
   it('keeps moving while a key is held across parent rerenders', () => {
     const onMoveControlledRole = vi.fn();
 

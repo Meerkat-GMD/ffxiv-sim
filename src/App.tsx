@@ -12,7 +12,9 @@ import {
 import { readFirebaseConfig } from './client/firebaseConfig';
 import { connectFirebaseRealtime } from './client/firebaseRealtimeClient';
 import {
+  applyTimelineStatusEffects,
   createInitialCombatStatuses,
+  isRoleMovementLocked,
   resetCombatStatuses,
   type PlayerCombatStatus,
 } from './sim/combatStatus';
@@ -97,6 +99,7 @@ function App({
   const timelineRef = useRef(timeline);
   const timelineTimeRef = useRef(timelineTime);
   const playersRef = useRef(players);
+  const combatStatusesRef = useRef(combatStatuses);
   const placedMarkersRef = useRef(placedMarkers);
   const targetMarkersRef = useRef(targetMarkers);
   const controlledRoleRef = useRef(controlledRole);
@@ -115,6 +118,10 @@ function App({
   useEffect(() => {
     playersRef.current = players;
   }, [players]);
+
+  useEffect(() => {
+    combatStatusesRef.current = combatStatuses;
+  }, [combatStatuses]);
 
   useEffect(() => {
     placedMarkersRef.current = placedMarkers;
@@ -233,9 +240,19 @@ function App({
         nextTime,
         Math.random,
       );
+      const nextCombatStatuses = applyTimelineStatusEffects(
+        combatStatusesRef.current,
+        timelineRef.current.events,
+        playersRef.current,
+        currentTime,
+        nextTime,
+        Math.random,
+      );
 
       timelineRef.current = nextTimeline;
       timelineTimeRef.current = nextTime;
+      combatStatusesRef.current = nextCombatStatuses;
+      setCombatStatuses(nextCombatStatuses);
       setTimeline(nextTimeline);
       setTimelineTime(nextTime);
     }, TIMELINE_TICK_MS);
@@ -291,8 +308,10 @@ function App({
 
   function handleResetTimeline() {
     const nextTimeline = createSampleTimeline();
+    const nextCombatStatuses = resetCombatStatuses();
 
-    setCombatStatuses(resetCombatStatuses());
+    setCombatStatuses(nextCombatStatuses);
+    combatStatusesRef.current = nextCombatStatuses;
     timelineRef.current = nextTimeline;
     timelineTimeRef.current = 0;
     setIsTimelinePlaying(false);
@@ -301,7 +320,10 @@ function App({
   }
 
   function handlePlayTimeline() {
-    setCombatStatuses(resetCombatStatuses());
+    const nextCombatStatuses = resetCombatStatuses();
+
+    setCombatStatuses(nextCombatStatuses);
+    combatStatusesRef.current = nextCombatStatuses;
     setIsTimelinePlaying(true);
   }
 
@@ -336,6 +358,7 @@ function App({
       events: encounter.timeline.events,
       resolvedEffects: [],
     };
+    const nextCombatStatuses = resetCombatStatuses();
 
     setPlayers(encounter.players);
     setPlacedMarkers(encounter.markers);
@@ -343,6 +366,8 @@ function App({
     setTimeline(nextTimeline);
     setTimelineTime(0);
     setIsTimelinePlaying(false);
+    setCombatStatuses(nextCombatStatuses);
+    combatStatusesRef.current = nextCombatStatuses;
     timelineRef.current = nextTimeline;
     timelineTimeRef.current = 0;
   }
@@ -353,10 +378,13 @@ function App({
       events: validateTimelineEvents(events),
       resolvedEffects: [],
     };
+    const nextCombatStatuses = resetCombatStatuses();
 
     setIsTimelinePlaying(false);
+    setCombatStatuses(nextCombatStatuses);
     setTimeline(nextTimeline);
     setTimelineTime(0);
+    combatStatusesRef.current = nextCombatStatuses;
     timelineRef.current = nextTimeline;
     timelineTimeRef.current = 0;
   }
@@ -447,6 +475,10 @@ function App({
   }
 
   function handleMoveControlledRole(role: Role, position: { x: number; y: number }) {
+    if (isRoleMovementLocked(combatStatusesRef.current, role)) {
+      return;
+    }
+
     const now = Date.now();
 
     localMoveRef.current = {
@@ -511,6 +543,11 @@ function App({
           <ArenaCanvas
             controlledRole={controlledRole}
             activeTelegraphs={timeline.activeTelegraphs}
+            movementLockedRoles={new Set(
+              combatStatuses
+                .filter((status) => isRoleMovementLocked(combatStatuses, status.role))
+                .map((status) => status.role),
+            )}
             onMoveControlledRole={roomId ? handleMoveControlledRole : undefined}
             onMoveMarker={handleMoveMarker}
             onPlaceMarker={handlePlaceMarker}

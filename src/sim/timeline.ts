@@ -78,12 +78,22 @@ export type SpawnStackEvent = {
   };
 };
 
+export type ApplyStatusEvent = {
+  duration: number;
+  id: string;
+  status: 'sleep';
+  target: TargetSpec;
+  time: number;
+  type: 'apply_status';
+};
+
 export type TimelineEvent =
   | SpawnAoeEvent
   | SpawnDonutEvent
   | SpawnLineEvent
   | SpawnConeEvent
-  | SpawnStackEvent;
+  | SpawnStackEvent
+  | ApplyStatusEvent;
 
 export type TelegraphShape =
   | { shape: 'circle'; radius: number }
@@ -192,6 +202,10 @@ export function advanceTimeline(
   const events = validateTimelineEvents(timeline.events);
   const validatedTimeline = { ...timeline, events };
   const spawnedTelegraphs = events.flatMap((event) => {
+    if (event.type === 'apply_status') {
+      return [];
+    }
+
     if (
       event.time <= fromTime ||
       event.time > toTime ||
@@ -315,6 +329,8 @@ function eventShape(event: TimelineEvent): TelegraphShape {
       return { ...event.cone, shape: 'cone' };
     case 'spawn_stack':
       return { radius: event.stack.radius, shape: 'stack' };
+    case 'apply_status':
+      throw new Error('Status events do not create telegraph shapes');
   }
 }
 
