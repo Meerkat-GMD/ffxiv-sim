@@ -169,6 +169,16 @@ export function ArenaCanvas({
   const pressedKeysRef = useRef<Set<MovementKey>>(new Set());
   const draggingMarkerIdRef = useRef<string | undefined>(undefined);
   const lastFrameRef = useRef<number | undefined>(undefined);
+  const controlledRoleRef = useRef(controlledRole);
+  const onMoveControlledRoleRef = useRef(onMoveControlledRole);
+
+  useEffect(() => {
+    controlledRoleRef.current = controlledRole;
+  }, [controlledRole]);
+
+  useEffect(() => {
+    onMoveControlledRoleRef.current = onMoveControlledRole;
+  }, [onMoveControlledRole]);
 
   function clearInteractionState() {
     pressedKeysRef.current.clear();
@@ -263,23 +273,29 @@ export function ArenaCanvas({
       const direction = movementVectorFromKeys(pressedKeysRef.current);
 
       if (direction.x !== 0 || direction.y !== 0) {
-        setPlayers((currentPlayers) =>
-          {
-            const nextPlayers = moveControlledPlayer(currentPlayers, controlledRole, {
+        setPlayers((currentPlayers) => {
+          const currentControlledRole = controlledRoleRef.current;
+          const nextPlayers = moveControlledPlayer(
+            currentPlayers,
+            currentControlledRole,
+            {
               x: direction.x * MOVE_UNITS_PER_SECOND * elapsedSeconds,
               y: direction.y * MOVE_UNITS_PER_SECOND * elapsedSeconds,
-            });
-            const movedPlayer = nextPlayers.find(
-              (player) => player.role === controlledRole,
+            },
+          );
+          const movedPlayer = nextPlayers.find(
+            (player) => player.role === currentControlledRole,
+          );
+
+          if (currentControlledRole && movedPlayer) {
+            onMoveControlledRoleRef.current?.(
+              currentControlledRole,
+              movedPlayer.position,
             );
+          }
 
-            if (controlledRole && movedPlayer) {
-              onMoveControlledRole?.(controlledRole, movedPlayer.position);
-            }
-
-            return nextPlayers;
-          },
-        );
+          return nextPlayers;
+        });
       }
 
       frameId = window.requestAnimationFrame(step);
@@ -292,7 +308,7 @@ export function ArenaCanvas({
       clearInteractionState();
       lastFrameRef.current = undefined;
     };
-  }, [controlledRole, onMoveControlledRole, setPlayers]);
+  }, [setPlayers]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

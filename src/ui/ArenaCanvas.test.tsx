@@ -1,5 +1,5 @@
 /* @vitest-environment jsdom */
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createInitialPlayers } from '../sim/players';
@@ -236,6 +236,54 @@ describe('ArenaCanvas keyboard scope', () => {
 
     expect(onMoveControlledRole).toHaveBeenCalledWith('MT', {
       x: 13,
+      y: -120,
+    });
+  });
+
+  it('keeps moving while a key is held across parent rerenders', () => {
+    const onMoveControlledRole = vi.fn();
+
+    function Wrapper() {
+      const [players, setPlayers] = useState(createInitialPlayers());
+
+      return (
+        <ArenaCanvas
+          controlledRole="MT"
+          onMoveControlledRole={(role, position) =>
+            onMoveControlledRole(role, position)
+          }
+          players={players}
+          setPlayers={setPlayers}
+        />
+      );
+    }
+
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+
+    act(() => {
+      root?.render(<Wrapper />);
+    });
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          cancelable: true,
+          code: 'KeyD',
+        }),
+      );
+      animationFrameCallbacks[0]?.(16);
+      animationFrameCallbacks[1]?.(66);
+    });
+
+    act(() => {
+      animationFrameCallbacks[2]?.(116);
+    });
+
+    expect(onMoveControlledRole).toHaveBeenLastCalledWith('MT', {
+      x: 26,
       y: -120,
     });
   });
