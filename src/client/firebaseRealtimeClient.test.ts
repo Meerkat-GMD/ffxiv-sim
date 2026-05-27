@@ -1,9 +1,27 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createInitialPlayers } from '../sim/players';
 import { createSampleTimeline } from '../sim/timeline';
-import { connectFirebaseRealtime, type FirebaseRealtimeApi } from './firebaseRealtimeClient';
+import {
+  connectFirebaseRealtime,
+  rolesOwnedByClientExcept,
+  type FirebaseRealtimeApi,
+} from './firebaseRealtimeClient';
 
 describe('firebase realtime client adapter', () => {
+  it('finds previous roles owned by the same client when switching roles', () => {
+    expect(
+      rolesOwnedByClientExcept(
+        {
+          D1: 'client-b',
+          MT: 'client-a',
+          ST: 'client-a',
+        },
+        'client-a',
+        'ST',
+      ),
+    ).toEqual(['MT']);
+  });
+
   it('subscribes to a room and maps database values to RoomSnapshot', () => {
     const api = createFirebaseApi();
     const onState = vi.fn();

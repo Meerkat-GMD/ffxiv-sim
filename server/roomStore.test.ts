@@ -12,6 +12,23 @@ describe('room store', () => {
     });
   });
 
+  it('releases a socket previous role when it claims a different role', () => {
+    const store = createRoomStore();
+
+    store.claimRole('alpha', 'socket-a', 'MT');
+    store.claimRole('alpha', 'socket-a', 'D1');
+
+    const snapshot = store.snapshot('alpha');
+
+    expect(snapshot.claimedRoles).toEqual({ D1: 'socket-a' });
+    expect(snapshot.players.find((player) => player.role === 'MT')?.connected).toBe(
+      false,
+    );
+    expect(snapshot.players.find((player) => player.role === 'D1')?.connected).toBe(
+      true,
+    );
+  });
+
   it('rejects movement from sockets that do not own the role', () => {
     const store = createRoomStore();
 

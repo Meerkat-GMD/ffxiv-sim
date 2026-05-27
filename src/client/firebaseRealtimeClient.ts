@@ -144,6 +144,23 @@ function createDatabaseFirebaseRealtimeApi(database: Database): FirebaseRealtime
         return;
       }
 
+      const claimedRolesRef = ref(database, `rooms/${roomId}/claimedRoles`);
+      const claimedRolesSnapshot = await get(claimedRolesRef);
+      const previousRoles = rolesOwnedByClientExcept(
+        claimedRolesSnapshot.val() as Partial<Record<Role, string>> | undefined,
+        clientId,
+        role,
+      );
+
+      await Promise.all(
+        previousRoles.map(async (previousRole) => {
+          await remove(child(claimedRolesRef, previousRole));
+          await update(ref(database, `rooms/${roomId}/players/${previousRole}`), {
+            connected: false,
+          });
+        }),
+      );
+
       await update(ref(database, `rooms/${roomId}/players/${role}`), {
         connected: true,
       });
@@ -305,6 +322,22 @@ function normalizeList<T>(value: T[] | Record<string, T> | undefined): T[] {
 
 function playersByRole(players: ReturnType<typeof createInitialPlayers>) {
   return Object.fromEntries(players.map((player) => [player.role, player]));
+}
+
+export function rolesOwnedByClientExcept(
+  claimedRoles: Partial<Record<Role, string>> | undefined,
+  clientId: string,
+  exceptRole: Role,
+): Role[] {
+  if (!claimedRoles) {
+    return [];
+  }
+
+  return Object.entries(claimedRoles)
+    .filter(
+      ([role, owner]) => role !== exceptRole && owner === clientId,
+    )
+    .map(([role]) => role as Role);
 }
 
 function createClientId(): string {

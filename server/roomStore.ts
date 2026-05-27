@@ -82,9 +82,23 @@ export function createRoomStore() {
       return { ok: false, reason: 'role_taken' };
     }
 
+    const releasedRoles = ROLES.filter(
+      (candidateRole) =>
+        candidateRole !== role && room.claimedRoles[candidateRole] === socketId,
+    );
+
+    for (const releasedRole of releasedRoles) {
+      delete room.claimedRoles[releasedRole];
+    }
+
     room.claimedRoles[role] = socketId;
+    const releasedRoleSet = new Set(releasedRoles);
     room.players = room.players.map((player) =>
-      player.role === role ? { ...player, connected: true } : player,
+      player.role === role
+        ? { ...player, connected: true }
+        : releasedRoleSet.has(player.role)
+          ? { ...player, connected: false }
+          : player,
     );
 
     return { ok: true, snapshot: snapshot(roomId) };
