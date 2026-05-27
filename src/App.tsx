@@ -251,34 +251,26 @@ function App({
   }
 
   function handleSelectMarker(marker: MarkerAsset) {
-    if (marker.category === 'combat') {
-      const hasTargetMarker = targetMarkersRef.current.some(
-        (targetMarker) => targetMarker.asset.src === marker.src,
-      );
+    const hasPlacedMarker = placedMarkersRef.current.some(
+      (placedMarker) => placedMarker.asset.src === marker.src,
+    );
+    const hasTargetMarker = targetMarkersRef.current.some(
+      (targetMarker) => targetMarker.asset.src === marker.src,
+    );
+
+    if (hasPlacedMarker || hasTargetMarker) {
+      if (hasPlacedMarker) {
+        commitPlacedMarkers(removeMarkersByAssetSrc(placedMarkersRef.current, marker.src));
+      }
 
       if (hasTargetMarker) {
         commitTargetMarkers(
-          targetMarkersRef.current.filter(
-            (targetMarker) => targetMarker.asset.src !== marker.src,
-          ),
+          removeMarkersByAssetSrc(targetMarkersRef.current, marker.src),
         );
-        setSelectedMarker(undefined);
-        return;
       }
-    } else {
-      const hasPlacedMarker = placedMarkersRef.current.some(
-        (placedMarker) => placedMarker.asset.src === marker.src,
-      );
 
-      if (hasPlacedMarker) {
-        commitPlacedMarkers(
-          placedMarkersRef.current.filter(
-            (placedMarker) => placedMarker.asset.src !== marker.src,
-          ),
-        );
-        setSelectedMarker(undefined);
-        return;
-      }
+      setSelectedMarker(undefined);
+      return;
     }
 
     setSelectedMarker((currentMarker) =>
@@ -697,6 +689,13 @@ function cloneTargetMarkers(markers: TargetMarker[]): TargetMarker[] {
     id: marker.id,
     target: { ...marker.target },
   }));
+}
+
+function removeMarkersByAssetSrc<T extends { asset: { src: string } }>(
+  markers: T[],
+  assetSrc: string,
+): T[] {
+  return markers.filter((marker) => marker.asset.src !== assetSrc);
 }
 
 function arePlacedMarkerListsEqual(

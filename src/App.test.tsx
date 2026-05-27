@@ -555,6 +555,59 @@ describe('App', () => {
     expect(markerButton?.getAttribute('aria-pressed')).toBe('false');
   });
 
+  it('removes legacy floor combat markers when the combat marker is selected again', () => {
+    const legacyAttackMarker = {
+      asset: {
+        alt: 'Attack marker 1',
+        category: 'combat' as const,
+        label: 'Atk',
+        src: '/assets/xivplan/marker/attack1.png',
+      },
+      id: '/assets/xivplan/marker/attack1.png',
+      position: { x: 0, y: 0 },
+    };
+
+    window.history.pushState({}, '', '/?room=alpha');
+    renderAppElement(
+      <App
+        realtimeConnector={(options) => {
+          options.onState({
+            claimedRoles: {},
+            markers: [legacyAttackMarker],
+            players: createInitialPlayers(),
+            roomId: 'alpha',
+            targetMarkers: [],
+            timeline: createSampleTimeline(),
+          });
+
+          return {
+            claimRole: vi.fn(),
+            disconnect: vi.fn(),
+            moveRole: vi.fn(),
+            setMarkers: vi.fn(),
+            setTargetMarkers: vi.fn(),
+          };
+        }}
+      />,
+    );
+
+    const markerButton = container?.querySelector<HTMLButtonElement>(
+      'button[data-marker-src="/assets/xivplan/marker/attack1.png"]',
+    );
+
+    expect(
+      container?.querySelector<HTMLImageElement>('img[alt="Placed Attack marker 1"]'),
+    ).not.toBeNull();
+
+    act(() => {
+      markerButton?.click();
+    });
+
+    expect(
+      container?.querySelector<HTMLImageElement>('img[alt="Placed Attack marker 1"]'),
+    ).toBeNull();
+  });
+
   it('keeps locally placed room markers through stale realtime movement snapshots', () => {
     let realtimeOptions: RealtimeClientOptions | undefined;
     const realtimeClient = {
