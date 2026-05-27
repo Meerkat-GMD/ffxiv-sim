@@ -9,6 +9,8 @@ import {
   type RealtimeClient,
   type RealtimeClientOptions,
 } from './client/realtimeClient';
+import { readFirebaseConfig } from './client/firebaseConfig';
+import { connectFirebaseRealtime } from './client/firebaseRealtimeClient';
 import { createInitialPlayers } from './sim/players';
 import { claimRole, type Role } from './sim/roles';
 import {
@@ -36,7 +38,7 @@ type AppProps = {
 type AppScreen = 'simulator' | 'timeline-editor';
 
 function App({
-  realtimeConnector = connectRealtime,
+  realtimeConnector = defaultRealtimeConnector,
   realtimeUrl,
 }: AppProps = {}) {
   const [activeScreen, setActiveScreen] = useState<AppScreen>('simulator');
@@ -409,3 +411,11 @@ function readRoomIdFromLocation(): string | undefined {
 }
 
 export default App;
+
+function defaultRealtimeConnector(options: RealtimeClientOptions): RealtimeClient {
+  if (readFirebaseConfig()) {
+    return connectFirebaseRealtime(options);
+  }
+
+  return connectRealtime(options);
+}

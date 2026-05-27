@@ -9,3 +9,4 @@ server.err.log
 verification-screenshots/
 .env
 .env.*
+.firebase/

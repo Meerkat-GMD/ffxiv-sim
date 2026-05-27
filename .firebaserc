@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "ffxiv-mitigation-planner"
+  },
+  "targets": {
+    "ffxiv-mitigation-planner": {
+      "hosting": {
+        "ffxiv-sim": [
+          "ffxiv-sim"
+        ]
+      }
+    }
+  }
+}
